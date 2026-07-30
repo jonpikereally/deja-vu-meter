@@ -101,6 +101,7 @@ private:
     juce::ComboBox   takesBox;
     juce::Label      takesLabel   { {}, "TAKE" };
     juce::Label      takeInfoLabel;
+    juce::ComboBox   minLenBox;
 
     // Peak tagging.
     juce::ComboBox peaksBox;
@@ -114,6 +115,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> skinAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> threshAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> minLenAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   autoAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   armAtt;
 

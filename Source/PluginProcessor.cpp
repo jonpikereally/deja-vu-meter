@@ -24,6 +24,10 @@ TimelineVUAudioProcessor::createLayout()
     layout.add (std::make_unique<AudioParameterBool>(
         ParameterID { "autoMode", 1 }, "Auto Record", false));
 
+    layout.add (std::make_unique<AudioParameterChoice>(
+        ParameterID { "minLen", 1 }, "Min Take Length",
+        StringArray { "Off", "0.5 s", "1 s", "2 s", "5 s" }, 0));
+
     layout.add (std::make_unique<AudioParameterBool>(
         ParameterID { "recordArm", 1 }, "Record Arm", false));
 
@@ -273,6 +277,12 @@ void TimelineVUAudioProcessor::finalizeCapture (const juce::String& name)
 {
     const int len = captureMaxSlot.load() + 1;
     if (len <= 0) { capturePeaks.clear(); return; }
+
+    // Minimum-length filter: discard takes shorter than the selected duration.
+    static const float minTable[] = { 0.0f, 0.5f, 1.0f, 2.0f, 5.0f };
+    const float minLen = minTable[juce::jlimit (0, 4, (int) *apvts.getRawParameterValue ("minLen"))];
+    const double durationSecs = juce::jmax (0.0, capEndSecs.load() - capStartSecs.load());
+    if (durationSecs < (double) minLen) { capturePeaks.clear(); return; }
 
     Recording take;
     take.name = name.trim().isNotEmpty() ? name.trim()
