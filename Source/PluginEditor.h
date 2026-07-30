@@ -80,6 +80,7 @@ private:
     void timerCallback() override;
     void applySkin();
     void refreshRecordingList();
+    void refreshPeaksList();
 
     TimelineVUAudioProcessor& proc;
 
@@ -109,9 +110,10 @@ private:
     juce::ComboBox   minLenBox;
 
     // Peak tagging.
-    juce::ComboBox peaksBox;
-    juce::Label    peaksLabel { {}, "PEAKS" };
-    juce::ComboBox threshBox;
+    juce::ComboBox   peaksBox;
+    juce::Label      peaksLabel { {}, "PEAKS" };
+    juce::ComboBox   threshBox;
+    juce::TextButton monitorButton { "PEAKS MONITOR" };
 
     juce::Label targetLabel;
     juce::Label positionLabel;
@@ -122,6 +124,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> minLenAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   autoAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   armAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   monitorAtt;
 
     // Per-channel display smoothing / peak hold.
     float liveDispL { 0.0f }, liveDispR { 0.0f }, livePkL { 0.0f }, livePkR { 0.0f };
@@ -129,6 +132,8 @@ private:
     bool  blinkOn { false };
     int   blinkCounter { 0 };
     bool  lastAutoOn { false };
+    bool  lastPeaksMonitorOn { false };
+    int   lastMonitorRev { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TimelineVUAudioProcessorEditor)
 };

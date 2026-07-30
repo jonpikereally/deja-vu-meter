@@ -19,6 +19,8 @@ TimelineVUAudioProcessor::createLayout()
         ParameterID { "peakThresh", 1 }, "Peak Threshold",
         StringArray { "0 dBFS", "-1 dBFS", "-3 dBFS", "-6 dBFS" }, 1));
     layout.add (std::make_unique<AudioParameterBool>(
+        ParameterID { "peaksMonitor", 1 }, "Peaks Monitor", false));
+    layout.add (std::make_unique<AudioParameterBool>(
         ParameterID { "autoMode", 1 }, "Auto Record", false));
     layout.add (std::make_unique<AudioParameterChoice>(
         ParameterID { "minLen", 1 }, "Min Take Length",
@@ -88,16 +90,34 @@ void TimelineVUAudioProcessor::drainPeaks()
 {
     if (newCaptureStarted.exchange (false))
         capturePeaks.clear();
+    if (newMonitorStarted.exchange (false))
+    {
+        monitorPeaks.clear();
+        ++monitorRev;
+    }
+
+    bool monChanged = false;
+    auto route = [&] (const PeakMark& m)
+    {
+        if (m.monitor) { monitorPeaks.push_back (m); monChanged = true; }
+        else           { capturePeaks.push_back (m); }
+    };
 
     int s1, sz1, s2, sz2;
     peakFifo.prepareToRead (peakFifo.getNumReady(), s1, sz1, s2, sz2);
-    for (int i = 0; i < sz1; ++i) capturePeaks.push_back (peakFifoBuf[(size_t) (s1 + i)]);
-    for (int i = 0; i < sz2; ++i) capturePeaks.push_back (peakFifoBuf[(size_t) (s2 + i)]);
+    for (int i = 0; i < sz1; ++i) route (peakFifoBuf[(size_t) (s1 + i)]);
+    for (int i = 0; i < sz2; ++i) route (peakFifoBuf[(size_t) (s2 + i)]);
     peakFifo.finishedRead (sz1 + sz2);
 
-    if ((int) capturePeaks.size() > kMaxPeaks)
-        capturePeaks.erase (capturePeaks.begin(),
-                            capturePeaks.begin() + ((int) capturePeaks.size() - kMaxPeaks));
+    auto capList = [] (std::vector<PeakMark>& v)
+    {
+        if ((int) v.size() > kMaxPeaks)
+            v.erase (v.begin(), v.begin() + ((int) v.size() - kMaxPeaks));
+    };
+    capList (capturePeaks);
+    capList (monitorPeaks);
+
+    if (monChanged) ++monitorRev;
 }
 
 //==============================================================================
@@ -175,6 +195,13 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     const bool recording = (armed || autoMode) && playing;
     recordingNow.store (recording);
 
+    // Peaks Monitor tags peaks regardless of arm/auto (when not recording).
+    const bool monitorOn     = *apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
+    const bool monitorActive = monitorOn && playing && ! recording;
+    const bool detectPeaks   = recording || monitorActive;
+    if (monitorOn && ! prevMonitorOn) newMonitorStarted.store (true);
+    prevMonitorOn = monitorOn;
+
     const int slot = posSamples >= 0
         ? (int) ((posSamples * (juce::int64) kSlotsPerSecond)
                     / (juce::int64) juce::jmax (1.0, currentSampleRate))
@@ -197,7 +224,7 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         capStartBeat.store (sBeat);
     }
 
-    // ---- Capture + tag peaks -----------------------------------------------
+    // ---- Capture envelope + range (recording only) -------------------------
     if (recording)
     {
         const int endSlot = (int) ((posSecs + blockSeconds) * kSlotsPerSecond);
@@ -215,7 +242,11 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         capEndSecs.store (posSecs + blockSeconds);
         capEndBar.store (eBar);
         capEndBeat.store (eBeat);
+    }
 
+    // ---- Tag peaks (recording OR Peaks Monitor) ----------------------------
+    if (detectPeaks)
+    {
         const float thrDb = peakThresholdDb();
         const float blockPeakDb = juce::Decibels::gainToDecibels (juce::jmax (pkL, pkR), -120.0f);
         if (blockPeakDb >= thrDb)
@@ -225,7 +256,7 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             {
                 peakEventMaxDb = blockPeakDb;
                 PeakMark m;
-                m.seconds = posSecs; m.ppq = ppq; m.db = blockPeakDb;
+                m.seconds = posSecs; m.ppq = ppq; m.db = blockPeakDb; m.monitor = ! recording;
                 computeBarBeat (ppq, num, den, m.bar, m.beat);
                 peakEventMark = m;
             }
@@ -236,13 +267,15 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             peakInEvent = false;
         }
     }
+    else if (peakInEvent)   // detection just stopped mid-event → flush
+    {
+        pushPeak (peakEventMark);
+        peakInEvent = false;
+    }
 
     // ---- Stop edge ---------------------------------------------------------
     if (! recording && prevRecording)
-    {
-        if (peakInEvent) { pushPeak (peakEventMark); peakInEvent = false; }
         captureFinished.store (true);
-    }
     prevRecording = recording;
 
     // ---- Ghost -------------------------------------------------------------
