@@ -286,6 +286,17 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
     takeInfoLabel.setFont (juce::FontOptions (11.0f));
     addAndMakeVisible (takeInfoLabel);
 
+    // Minimum-take-length filter (self-labeling items).
+    minLenBox.addItem ("Min: Off", 1);
+    minLenBox.addItem ("Min 0.5s", 2);
+    minLenBox.addItem ("Min 1s",   3);
+    minLenBox.addItem ("Min 2s",   4);
+    minLenBox.addItem ("Min 5s",   5);
+    minLenBox.setTooltip ("Discard recorded takes shorter than this");
+    addAndMakeVisible (minLenBox);
+    minLenAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        proc.apvts, "minLen", minLenBox);
+
     // Peak threshold selector (parameter-backed) + peaks list.
     peaksLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
     peaksLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
@@ -457,6 +468,8 @@ void TimelineVUAudioProcessorEditor::resized()
     controls.removeFromTop (6);
     auto takeRow = controls.removeFromTop (26);
     takesLabel.setBounds (takeRow.removeFromLeft (46));
+    minLenBox.setBounds (takeRow.removeFromRight (92));
+    takeRow.removeFromRight (6);
     takesBox.setBounds (takeRow);
 
     controls.removeFromTop (4);
