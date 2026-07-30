@@ -91,14 +91,16 @@ private:
     // Controls.
     juce::ComboBox   modeBox;
     juce::ComboBox   skinBox;
-    juce::TextButton armButton   { "ARM REC" };
-    juce::TextButton clearButton { "DELETE" };
+    juce::TextButton autoButton  { "AUTO" };
+    juce::TextButton armButton   { "ARM" };
+    juce::TextButton clearButton { "DEL" };
 
     // Recording naming + history.
     juce::TextEditor nameField;
     juce::Label      nameLabel    { {}, "NAME" };
     juce::ComboBox   takesBox;
     juce::Label      takesLabel   { {}, "TAKE" };
+    juce::Label      takeInfoLabel;
 
     // Peak tagging.
     juce::ComboBox peaksBox;
@@ -112,6 +114,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> skinAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> threshAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   autoAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   armAtt;
 
     // Display smoothing / peak hold.
