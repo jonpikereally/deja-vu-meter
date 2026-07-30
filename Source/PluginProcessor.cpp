@@ -287,8 +287,8 @@ void TimelineVUAudioProcessor::finalizeCapture (const juce::String& name)
     if (durationSecs < (double) minLen) { capturePeaks.clear(); return; }
 
     Recording take;
-    take.name = name.trim().isNotEmpty() ? name.trim()
-              : juce::String ("Take ") + juce::String (history.size() + 1);
+    take.name = name.trim().isNotEmpty() ? makeUniqueName (name.trim())
+                                         : defaultTakeName();
     take.dataL.resize ((size_t) len);
     take.dataR.resize ((size_t) len);
     for (int i = 0; i < len; ++i)
@@ -330,6 +330,44 @@ void TimelineVUAudioProcessor::deleteActiveRecording()
         history.erase (history.begin() + activeIndex);
         activeIndex = history.empty() ? -1 : juce::jmin (activeIndex, (int) history.size() - 1);
         fillPlaybackFromActive();
+    }
+}
+
+void TimelineVUAudioProcessor::deleteAllRecordings()
+{
+    history.clear();
+    activeIndex = -1;
+    fillPlaybackFromActive();
+}
+
+//==============================================================================
+bool TimelineVUAudioProcessor::nameExists (const juce::String& n) const
+{
+    for (const auto& r : history)
+        if (r.name == n)
+            return true;
+    return false;
+}
+
+juce::String TimelineVUAudioProcessor::makeUniqueName (const juce::String& base) const
+{
+    if (! nameExists (base))
+        return base;
+    for (int i = 2; ; ++i)
+    {
+        const juce::String candidate = base + " (" + juce::String (i) + ")";
+        if (! nameExists (candidate))
+            return candidate;
+    }
+}
+
+juce::String TimelineVUAudioProcessor::defaultTakeName() const
+{
+    for (int k = 1; ; ++k)
+    {
+        const juce::String candidate = "Take " + juce::String (k);
+        if (! nameExists (candidate))
+            return candidate;
     }
 }
 

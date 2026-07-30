@@ -95,6 +95,7 @@ public:
     void finalizeCapture (const juce::String& name);
     void selectRecording (int index);
     void deleteActiveRecording();
+    void deleteAllRecordings();
 
     int          getNumRecordings() const { return (int) history.size(); }
     int          getActiveRecording() const { return activeIndex; }
@@ -163,6 +164,10 @@ private:
     static void computeBarBeat (double ppq, int num, int den, int& bar, int& beat);
 
     void fillPlaybackFromActive();
+
+    bool         nameExists (const juce::String&) const;
+    juce::String makeUniqueName (const juce::String& base) const;
+    juce::String defaultTakeName() const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TimelineVUAudioProcessor)
 };
