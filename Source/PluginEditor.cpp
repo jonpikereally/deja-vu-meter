@@ -238,6 +238,13 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
     skinAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         proc.apvts, "meterSkin", skinBox);
 
+    autoButton.setClickingTogglesState (true);
+    autoButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
+    autoButton.setTooltip ("Auto-record every playback pass (keeps the last 5)");
+    addAndMakeVisible (autoButton);
+    autoAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        proc.apvts, "autoMode", autoButton);
+
     armButton.setClickingTogglesState (true);
     armButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffe0483a));
     addAndMakeVisible (armButton);
@@ -273,6 +280,11 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
         }
     };
     addAndMakeVisible (takesBox);
+
+    takeInfoLabel.setJustificationType (juce::Justification::centred);
+    takeInfoLabel.setColour (juce::Label::textColourId, juce::Colour (0xff9a9a9a));
+    takeInfoLabel.setFont (juce::FontOptions (11.0f));
+    addAndMakeVisible (takeInfoLabel);
 
     // Peak threshold selector (parameter-backed) + peaks list.
     peaksLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
@@ -333,7 +345,7 @@ void TimelineVUAudioProcessorEditor::applySkin()
     liveLabel    .setVisible (! analogSkin);
     analogMeter  .setVisible (analogSkin);
 
-    setSize (analogSkin ? 470 : 380, analogSkin ? 520 : 560);
+    setSize (analogSkin ? 480 : 400, analogSkin ? 548 : 588);
     resized();
 }
 
@@ -355,6 +367,25 @@ void TimelineVUAudioProcessorEditor::refreshRecordingList()
         peaksBox.addItem (juce::String::formatted ("%d.%d    %+.1f dB", pk.bar, pk.beat, pk.db), i + 1);
     }
     targetLabel.setText ({}, juce::dontSendNotification);
+
+    // Start / end / length of the active take.
+    const auto info = proc.getRecordingInfo (proc.getActiveRecording());
+    if (info.valid)
+    {
+        auto tc = [] (double s) { const int m = (int) (s / 60.0); return juce::String::formatted ("%d:%05.2f", m, s - m * 60.0); };
+        const juce::String s0 = tc (info.startSeconds);
+        const juce::String s1 = tc (info.endSeconds);
+        const double len = juce::jmax (0.0, info.endSeconds - info.startSeconds);
+        takeInfoLabel.setText (
+            juce::String::formatted ("start %d.%d (%s)     end %d.%d (%s)     len %.1fs",
+                                     info.startBar, info.startBeat, s0.toRawUTF8(),
+                                     info.endBar, info.endBeat, s1.toRawUTF8(), len),
+            juce::dontSendNotification);
+    }
+    else
+    {
+        takeInfoLabel.setText ({}, juce::dontSendNotification);
+    }
 }
 
 //==============================================================================
@@ -391,7 +422,7 @@ void TimelineVUAudioProcessorEditor::resized()
     auto r = getLocalBounds().reduced (14);
     r.removeFromTop (30);                       // title band
 
-    auto controls = r.removeFromBottom (206);
+    auto controls = r.removeFromBottom (214);
     r.removeFromBottom (8);
 
     // Meter area.
@@ -411,9 +442,10 @@ void TimelineVUAudioProcessorEditor::resized()
 
     // Controls stack.
     auto buttons = controls.removeFromTop (30);
-    const int bw = buttons.getWidth() / 4;
+    const int bw = buttons.getWidth() / 5;
     modeBox.setBounds     (buttons.removeFromLeft (bw).reduced (3, 0));
     skinBox.setBounds     (buttons.removeFromLeft (bw).reduced (3, 0));
+    autoButton.setBounds  (buttons.removeFromLeft (bw).reduced (3, 0));
     armButton.setBounds   (buttons.removeFromLeft (bw).reduced (3, 0));
     clearButton.setBounds (buttons.reduced (3, 0));
 
@@ -426,6 +458,9 @@ void TimelineVUAudioProcessorEditor::resized()
     auto takeRow = controls.removeFromTop (26);
     takesLabel.setBounds (takeRow.removeFromLeft (46));
     takesBox.setBounds (takeRow);
+
+    controls.removeFromTop (4);
+    takeInfoLabel.setBounds (controls.removeFromTop (18));
 
     controls.removeFromTop (6);
     auto peaksRow = controls.removeFromTop (26);
@@ -458,13 +493,20 @@ void TimelineVUAudioProcessorEditor::timerCallback()
     recordedMeter.setValues (recDisplay, recPeak);
     analogMeter.setValues (liveDisplay, recDisplay, livePeak, recPeak, proc.hasRecording.load());
 
-    // A take just finished: store it, refresh the list, and auto-disarm.
+    const bool autoOn = *proc.apvts.getRawParameterValue ("autoMode") > 0.5f;
+    armButton.setEnabled (! autoOn);
+
+    // A take just finished: store it, refresh the list, and (manual) auto-disarm.
     if (proc.captureFinished.exchange (false))
     {
-        proc.finalizeCapture (nameField.getText());
+        const juce::String nm = autoOn
+            ? "Auto " + juce::Time::getCurrentTime().formatted ("%H:%M:%S")
+            : nameField.getText();
+        proc.finalizeCapture (nm);
         refreshRecordingList();
-        if (auto* prm = proc.apvts.getParameter ("recordArm"))
-            prm->setValueNotifyingHost (0.0f);
+        if (! autoOn)
+            if (auto* prm = proc.apvts.getParameter ("recordArm"))
+                prm->setValueNotifyingHost (0.0f);
         nameField.setText (proc.getRecordingName (proc.getActiveRecording()),
                            juce::dontSendNotification);
     }

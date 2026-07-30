@@ -22,6 +22,9 @@ TimelineVUAudioProcessor::createLayout()
         StringArray { "0 dBFS", "-1 dBFS", "-3 dBFS", "-6 dBFS" }, 1));
 
     layout.add (std::make_unique<AudioParameterBool>(
+        ParameterID { "autoMode", 1 }, "Auto Record", false));
+
+    layout.add (std::make_unique<AudioParameterBool>(
         ParameterID { "recordArm", 1 }, "Record Arm", false));
 
     return layout;
@@ -174,7 +177,8 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     playheadPpq.store (ppq);
 
     const bool armed     = *apvts.getRawParameterValue ("recordArm") > 0.5f;
-    const bool recording = armed && playing;
+    const bool autoMode  = *apvts.getRawParameterValue ("autoMode")  > 0.5f;
+    const bool recording = (armed || autoMode) && playing;
     recordingNow.store (recording);
 
     const int slot = posSamples >= 0
@@ -190,6 +194,12 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         peakInEvent = false;
         peakEventMaxDb = -200.0f;
         newCaptureStarted.store (true);
+
+        int sBar, sBeat;
+        computeBarBeat (ppq, num, den, sBar, sBeat);
+        capStartSecs.store (posSecs);
+        capStartBar.store (sBar);
+        capStartBeat.store (sBeat);
     }
 
     // ---- Capture envelope + tag peaks --------------------------------------
@@ -201,6 +211,12 @@ void TimelineVUAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             writeSlots (slot, juce::jmax (slot, endSlot), currentLevel);
             captureMaxSlot.store (juce::jmax (captureMaxSlot.load(), juce::jmin (endSlot, kMaxSlots - 1)));
         }
+
+        int eBar, eBeat;
+        computeBarBeat (ppq, num, den, eBar, eBeat);
+        capEndSecs.store (posSecs + blockSeconds);
+        capEndBar.store (eBar);
+        capEndBeat.store (eBeat);
 
         const float thrDb = peakThresholdDb();
         const float blockPeakDb = juce::Decibels::gainToDecibels (blockPeak, -120.0f);
@@ -267,6 +283,13 @@ void TimelineVUAudioProcessor::finalizeCapture (const juce::String& name)
     take.peaks = capturePeaks;
     capturePeaks.clear();
 
+    take.startSeconds = capStartSecs.load();
+    take.endSeconds   = capEndSecs.load();
+    take.startBar     = capStartBar.load();
+    take.startBeat    = capStartBeat.load();
+    take.endBar       = capEndBar.load();
+    take.endBeat      = capEndBeat.load();
+
     history.insert (history.begin(), std::move (take));
     if ((int) history.size() > kMaxRecordings)
         history.resize (kMaxRecordings);
@@ -313,7 +336,7 @@ void TimelineVUAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     }
     else { mos.writeInt (0); }
 
-    mos.writeInt (3);                          // format version
+    mos.writeInt (4);                          // format version
     mos.writeInt (kSlotsPerSecond);
     mos.writeInt (activeIndex);
     mos.writeInt ((int) history.size());
@@ -333,6 +356,13 @@ void TimelineVUAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
             mos.writeInt    (pk.bar);
             mos.writeInt    (pk.beat);
         }
+
+        mos.writeDouble (r.startSeconds);
+        mos.writeDouble (r.endSeconds);
+        mos.writeInt (r.startBar);
+        mos.writeInt (r.startBeat);
+        mos.writeInt (r.endBar);
+        mos.writeInt (r.endBeat);
     }
 }
 
@@ -352,7 +382,7 @@ void TimelineVUAudioProcessor::setStateInformation (const void* data, int sizeIn
     history.clear();
     activeIndex = -1;
 
-    if (mis.getNumBytesRemaining() >= 4 && mis.readInt() == 3)
+    if (mis.getNumBytesRemaining() >= 4 && mis.readInt() == 4)
     {
         mis.readInt();                          // slotsPerSecond context
         const int savedActive = mis.readInt();
@@ -377,6 +407,14 @@ void TimelineVUAudioProcessor::setStateInformation (const void* data, int sizeIn
                 pk.beat    = mis.readInt();
                 r.peaks.push_back (pk);
             }
+
+            r.startSeconds = mis.readDouble();
+            r.endSeconds   = mis.readDouble();
+            r.startBar     = mis.readInt();
+            r.startBeat    = mis.readInt();
+            r.endBar       = mis.readInt();
+            r.endBeat      = mis.readInt();
+
             history.push_back (std::move (r));
         }
         activeIndex = juce::isPositiveAndBelow (savedActive, (int) history.size()) ? savedActive

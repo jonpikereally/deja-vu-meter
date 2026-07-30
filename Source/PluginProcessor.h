@@ -36,6 +36,15 @@ public:
         juce::String          name;
         std::vector<float>    data;    // one entry per slot
         std::vector<PeakMark> peaks;
+        double startSeconds { 0.0 }, endSeconds { 0.0 };
+        int    startBar { 1 }, startBeat { 1 }, endBar { 1 }, endBeat { 1 };
+    };
+
+    struct TakeInfo
+    {
+        double startSeconds { 0.0 }, endSeconds { 0.0 };
+        int    startBar { 1 }, startBeat { 1 }, endBar { 1 }, endBeat { 1 };
+        bool   valid { false };
     };
 
     //==========================================================================
@@ -111,6 +120,17 @@ public:
         return {};
     }
 
+    TakeInfo getRecordingInfo (int i) const
+    {
+        TakeInfo t;
+        if (juce::isPositiveAndBelow (i, (int) history.size()))
+        {
+            const auto& r = history[(size_t) i];
+            t = { r.startSeconds, r.endSeconds, r.startBar, r.startBeat, r.endBar, r.endBeat, true };
+        }
+        return t;
+    }
+
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
 private:
@@ -136,6 +156,10 @@ private:
     bool     peakInEvent   { false };                     // audio thread
     float    peakEventMaxDb { -200.0f };
     PeakMark peakEventMark;
+
+    // Capture range (start/end) for the take in progress.
+    std::atomic<double> capStartSecs { 0.0 }, capEndSecs { 0.0 };
+    std::atomic<int>    capStartBar { 1 }, capStartBeat { 1 }, capEndBar { 1 }, capEndBeat { 1 };
 
     float peakThresholdDb() const;
     void  pushPeak (const PeakMark&) noexcept;
