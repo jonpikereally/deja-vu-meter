@@ -104,8 +104,38 @@ void AnalogVUMeter::setValues (float liveLin, float recLin, float livePeakLin, f
 
 void AnalogVUMeter::paint (juce::Graphics& g)
 {
-    auto b = getLocalBounds().toFloat();
+    auto full = getLocalBounds().toFloat();
 
+    // Peak indicator lamps ABOVE the dial (LIVE + RECORDED for this channel).
+    {
+        auto s = full.removeFromTop (24.0f).reduced (4.0f, 3.0f);
+        const float y = s.getCentreY();
+        const bool liveClip = juce::Decibels::gainToDecibels (livePeak, -120.0f) >= -1.0f;
+        const bool recClip  = juce::Decibels::gainToDecibels (recPeak,  -120.0f) >= -1.0f;
+
+        float x = s.getCentreX() - 70.0f;
+        g.setColour (juce::Colour (0xff8a8a8a));
+        g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        g.drawText ("PEAK", juce::Rectangle<float> (x, s.getY(), 34, s.getHeight()), juce::Justification::centredLeft);
+        x += 36.0f;
+
+        auto lamp = [&] (bool on, juce::Colour col, const char* label)
+        {
+            auto c = juce::Rectangle<float> (x, y - 4.0f, 8.0f, 8.0f);
+            if (on) { g.setColour (col.withAlpha (0.40f)); g.fillEllipse (c.expanded (3.0f)); }
+            g.setColour (on ? col : col.withMultipliedBrightness (0.30f));
+            g.fillEllipse (c);
+            x += 12.0f;
+            g.setColour (juce::Colour (0xffb0b0b0));
+            g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+            g.drawText (label, juce::Rectangle<float> (x, s.getY(), 40, s.getHeight()), juce::Justification::centredLeft);
+            x += 40.0f;
+        };
+        lamp (liveClip, juce::Colour (0xffff3b30), "LIVE");
+        lamp (recClip,  juce::Colour (0xffffb43a), "REC");
+    }
+
+    auto b = full;
     g.setGradientFill (juce::ColourGradient (juce::Colour (0xff2c2c2c), b.getX(), b.getY(),
                                              juce::Colour (0xff050505), b.getX(), b.getBottom(), false));
     g.fillRoundedRectangle (b, 9.0f);
@@ -167,30 +197,6 @@ void AnalogVUMeter::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (faceH * 0.11f, juce::Font::bold));
     g.drawText (channel, juce::Rectangle<float> (face.getX() + 6, face.getY() + 4, 22, 18),
                 juce::Justification::centredLeft);
-
-    // PEAK lamps (live + recorded).
-    {
-        const float rr  = faceH * 0.042f;
-        const float lx  = face.getRight() - faceH * 0.13f;
-        const float lyL = face.getY() + faceH * 0.26f;
-        const float lyR = lyL + faceH * 0.18f;
-        g.setColour (juce::Colour (0xff20201a));
-        g.setFont (juce::FontOptions (juce::jmax (7.5f, faceH * 0.055f), juce::Font::bold));
-        g.drawText ("PEAK", juce::Rectangle<float> (lx - 60, lyL - faceH * 0.15f, 72, 12),
-                    juce::Justification::centredRight);
-
-        auto lamp = [&] (float y, bool on, juce::Colour colour, const char* label)
-        {
-            auto c = juce::Rectangle<float> (0, 0, rr * 2, rr * 2).withCentre ({ lx, y });
-            if (on) { g.setColour (colour.withAlpha (0.35f)); g.fillEllipse (c.expanded (rr * 0.8f)); }
-            g.setColour (on ? colour : colour.withMultipliedBrightness (0.28f));
-            g.fillEllipse (c);
-            g.setColour (juce::Colour (0xff20201a));
-            g.drawText (label, juce::Rectangle<float> (lx - 60, y - 8, 50, 16), juce::Justification::centredRight);
-        };
-        lamp (lyL, juce::Decibels::gainToDecibels (livePeak, -120.0f) >= -1.0f, juce::Colour (0xffff3b30), "LV");
-        lamp (lyR, juce::Decibels::gainToDecibels (recPeak,  -120.0f) >= -1.0f, juce::Colour (0xffffb43a), "RC");
-    }
 
     // Needles (positions are already in VU units from the physics step).
     auto drawNeedle = [&] (float vu, juce::Colour c, float thick, float alpha)
