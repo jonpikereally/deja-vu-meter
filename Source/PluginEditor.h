@@ -4,15 +4,17 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// A single vertical bar meter (green→amber→red) with a peak-hold cap. Ghost
-// mode draws hollow/amber for the recorded take.
+// Stereo vertical bar meter: two bars (L, R). Ghost mode draws hollow/amber.
 //==============================================================================
 class VUMeter : public juce::Component
 {
 public:
     explicit VUMeter (bool ghost) : isGhost (ghost) {}
 
-    void setValues (float level, float peak) { level01 = level; peak01 = peak; repaint(); }
+    void setValues (float lL, float pL, float lR, float pR)
+    {
+        levL = lL; pkL = pL; levR = lR; pkR = pR; repaint();
+    }
 
     static float toNorm (float linear)
     {
@@ -26,39 +28,40 @@ public:
     static constexpr float kMaxDb =   6.0f;
 
 private:
+    void drawBar (juce::Graphics&, juce::Rectangle<float>, float level, float peak, const char* label);
+
     bool  isGhost;
-    float level01 { 0.0f };
-    float peak01  { 0.0f };
+    float levL { 0.0f }, pkL { 0.0f }, levR { 0.0f }, pkR { 0.0f };
 };
 
 //==============================================================================
-// Classic analog VU face: cream dial, swept scale, red zone past 0 VU, a PEAK
-// lamp, and two needles — black "Live" and amber "Recorded" ghost.
+// Single-channel analog VU face with spring-damped needle ballistics: a black
+// "Live" needle and an amber "Recorded" ghost needle, plus two PEAK lamps.
 //==============================================================================
 class AnalogVUMeter : public juce::Component
 {
 public:
-    void setValues (float liveLin, float recLin, float livePeakLin, float recPeakLin, bool recActive)
-    {
-        live = liveLin; rec = recLin; livePeak = livePeakLin; recPeak = recPeakLin; hasRec = recActive;
-        repaint();
-    }
+    explicit AnalogVUMeter (juce::String chan) : channel (std::move (chan)) {}
+
+    // Advances the needle physics one display frame toward the new targets.
+    void setValues (float liveLin, float recLin, float livePeakLin, float recPeakLin,
+                    bool recActive, bool isVu);
 
     void paint (juce::Graphics& g) override;
 
-    // 0 VU reference and dial range.
-    static constexpr float kRefDbfs = -18.0f;
+    static constexpr float kRefDbfs = -18.0f;   // 0 VU
     static constexpr float kVuMin   = -20.0f;
     static constexpr float kVuMax   =   3.0f;
 
 private:
-    static float vuFromLinear (float lin)
-    {
-        return juce::Decibels::gainToDecibels (lin, -120.0f) - kRefDbfs;
-    }
-    static float angleForVu (float vu);   // radians, clockwise from 12 o'clock
+    static float vuFromLinear (float lin) { return juce::Decibels::gainToDecibels (lin, -120.0f) - kRefDbfs; }
+    static float angleForVu (float vu);
+    static void  stepNeedle (float& pos, float& vel, float target, bool isVu);
 
-    float live { 0.0f }, rec { 0.0f }, livePeak { 0.0f }, recPeak { 0.0f };
+    juce::String channel;
+    float posLive { kVuMin }, velLive { 0.0f };
+    float posRec  { kVuMin }, velRec  { 0.0f };
+    float livePeak { 0.0f }, recPeak { 0.0f };
     bool  hasRec { false };
 };
 
@@ -83,9 +86,11 @@ private:
     // Meters.
     VUMeter       recordedMeter { true };
     VUMeter       liveMeter     { false };
-    AnalogVUMeter analogMeter;
+    AnalogVUMeter dialL { "L" };
+    AnalogVUMeter dialR { "R" };
     juce::Label   recordedLabel { {}, "RECORDED" };
     juce::Label   liveLabel     { {}, "LIVE" };
+    juce::Label   numericLabel;
     bool          analogSkin { true };
 
     // Controls.
@@ -97,18 +102,17 @@ private:
 
     // Recording naming + history.
     juce::TextEditor nameField;
-    juce::Label      nameLabel    { {}, "NAME" };
+    juce::Label      nameLabel  { {}, "NAME" };
     juce::ComboBox   takesBox;
-    juce::Label      takesLabel   { {}, "TAKE" };
+    juce::Label      takesLabel { {}, "TAKE" };
     juce::Label      takeInfoLabel;
     juce::ComboBox   minLenBox;
 
     // Peak tagging.
     juce::ComboBox peaksBox;
-    juce::Label    peaksLabel  { {}, "PEAKS" };
+    juce::Label    peaksLabel { {}, "PEAKS" };
     juce::ComboBox threshBox;
 
-    // Status: playhead position + selected-peak target.
     juce::Label targetLabel;
     juce::Label positionLabel;
 
@@ -119,9 +123,9 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   autoAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   armAtt;
 
-    // Display smoothing / peak hold.
-    float liveDisplay { 0.0f }, livePeak { 0.0f };
-    float recDisplay  { 0.0f }, recPeak  { 0.0f };
+    // Per-channel display smoothing / peak hold.
+    float liveDispL { 0.0f }, liveDispR { 0.0f }, livePkL { 0.0f }, livePkR { 0.0f };
+    float recDispL  { 0.0f }, recDispR  { 0.0f }, recPkL  { 0.0f }, recPkR  { 0.0f };
     bool  blinkOn { false };
     int   blinkCounter { 0 };
 

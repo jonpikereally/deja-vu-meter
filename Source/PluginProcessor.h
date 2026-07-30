@@ -6,22 +6,21 @@
 #include <vector>
 
 //==============================================================================
-// Deja VU  — pass-through metering effect. Measures level (VU or Peak), records
-// a level envelope locked to the host timeline, plays it back as a "Recorded"
-// ghost against "Live", and tags peak moments during recording.
+// Deja VU  — pass-through stereo metering effect. Measures L/R level (VU or
+// Peak), records L/R level envelopes locked to the host timeline, plays them
+// back as a "Recorded" ghost against "Live", and tags peak moments.
 //==============================================================================
 class TimelineVUAudioProcessor : public juce::AudioProcessor
 {
 public:
-    static constexpr int kSlotsPerSecond = 100;                 // 10 ms hop
-    static constexpr int kMaxSeconds     = 3600;                // 60 min cap
+    static constexpr int kSlotsPerSecond = 100;
+    static constexpr int kMaxSeconds     = 3600;
     static constexpr int kMaxSlots       = kSlotsPerSecond * kMaxSeconds;
     static constexpr int kMaxRecordings  = 5;
     static constexpr int kPeakFifoSize   = 256;
 
     enum MeterMode { VU = 0, Peak = 1 };
 
-    // A tagged peak moment on the timeline.
     struct PeakMark
     {
         double seconds { 0.0 };
@@ -34,7 +33,7 @@ public:
     struct Recording
     {
         juce::String          name;
-        std::vector<float>    data;    // one entry per slot
+        std::vector<float>    dataL, dataR;    // one entry per slot, per channel
         std::vector<PeakMark> peaks;
         double startSeconds { 0.0 }, endSeconds { 0.0 };
         int    startBar { 1 }, startBeat { 1 }, endBar { 1 }, endBeat { 1 };
@@ -75,11 +74,13 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     //==========================================================================
-    // Live state read by the editor (GUI thread). All lock-free.
     juce::AudioProcessorValueTreeState apvts;
 
-    std::atomic<float>  liveLevel        { 0.0f };
-    std::atomic<float>  recordedLevel    { 0.0f };
+    // Per-channel live state (linear, current metric).
+    std::atomic<float>  liveL { 0.0f }, liveR { 0.0f };
+    std::atomic<float>  livePeakL { 0.0f }, livePeakR { 0.0f };   // fast peak env
+    std::atomic<float>  recordedL { 0.0f }, recordedR { 0.0f };   // ghost
+
     std::atomic<bool>   transportPlaying { false };
     std::atomic<bool>   recordingNow     { false };
     std::atomic<bool>   hasRecording     { false };
@@ -90,8 +91,7 @@ public:
     std::atomic<bool>   captureFinished  { false };
 
     //==========================================================================
-    // Message-thread API for the editor.
-    void drainPeaks();                                 // move fifo → capturePeaks
+    void drainPeaks();
     void finalizeCapture (const juce::String& name);
     void selectRecording (int index);
     void deleteActiveRecording();
@@ -103,7 +103,6 @@ public:
         return juce::isPositiveAndBelow (i, (int) history.size()) ? history[(size_t) i].name
                                                                   : juce::String();
     }
-
     int getNumPeaks() const
     {
         return juce::isPositiveAndBelow (activeIndex, (int) history.size())
@@ -119,7 +118,6 @@ public:
         }
         return {};
     }
-
     TakeInfo getRecordingInfo (int i) const
     {
         TakeInfo t;
@@ -136,28 +134,27 @@ public:
 private:
     double currentSampleRate { 44100.0 };
 
-    double smoothedMeanSquare { 0.0 };
-    float  peakEnvelope       { 0.0f };
+    double smoothedMsL { 0.0 }, smoothedMsR { 0.0 };
+    float  peakEnvL { 0.0f }, peakEnvR { 0.0f };
 
-    std::vector<float> captureEnvelope;
+    std::vector<float> captureEnvL, captureEnvR;
     std::atomic<int>   captureMaxSlot { -1 };
     bool               prevRecording  { false };
 
-    std::vector<float> playbackEnvelope;
+    std::vector<float> playbackEnvL, playbackEnvR;
 
     std::vector<Recording> history;
     int                    activeIndex { -1 };
 
     // Peak tagging.
-    std::vector<PeakMark>            capturePeaks;         // message thread
+    std::vector<PeakMark>               capturePeaks;
     std::array<PeakMark, kPeakFifoSize> peakFifoBuf;
-    juce::AbstractFifo               peakFifo { kPeakFifoSize };
-    std::atomic<bool>                newCaptureStarted { false };
-    bool     peakInEvent   { false };                     // audio thread
+    juce::AbstractFifo                  peakFifo { kPeakFifoSize };
+    std::atomic<bool>                   newCaptureStarted { false };
+    bool     peakInEvent   { false };
     float    peakEventMaxDb { -200.0f };
     PeakMark peakEventMark;
 
-    // Capture range (start/end) for the take in progress.
     std::atomic<double> capStartSecs { 0.0 }, capEndSecs { 0.0 };
     std::atomic<int>    capStartBar { 1 }, capStartBeat { 1 }, capEndBar { 1 }, capEndBeat { 1 };
 
@@ -166,7 +163,6 @@ private:
     static void computeBarBeat (double ppq, int num, int den, int& bar, int& beat);
 
     void fillPlaybackFromActive();
-    void writeSlots (int fromSlot, int toSlot, float value) noexcept;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TimelineVUAudioProcessor)
 };
