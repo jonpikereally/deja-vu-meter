@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(TimelineVU VERSION 0.8.0)
+project(TimelineVU VERSION 0.9.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -52,6 +52,43 @@ target_compile_definitions(TimelineVU PUBLIC
 )
 
 target_link_libraries(TimelineVU PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)
+
+# ---------------------------------------------------------------------------
+# Second plugin: Deja VU Spectrum (FFT spectrum + timeline recording)
+# ---------------------------------------------------------------------------
+juce_add_plugin(DejaVUSpectrum
+    PLUGIN_MANUFACTURER_CODE Jpke
+    PLUGIN_CODE              Dvsp
+    COMPANY_NAME             "Jon Pike"
+    BUNDLE_ID                com.jonpike.dejavuspectrum
+    FORMATS                  AU VST3 Standalone
+    PRODUCT_NAME             "Deja VU Spectrum"
+    IS_SYNTH                 FALSE
+    NEEDS_MIDI_INPUT         FALSE
+    NEEDS_MIDI_OUTPUT        FALSE
+    COPY_PLUGIN_AFTER_BUILD  TRUE
+)
+
+juce_generate_juce_header(DejaVUSpectrum)
+
+target_sources(DejaVUSpectrum PRIVATE
+    Source/Spectrum/SpectrumProcessor.cpp
+    Source/Spectrum/SpectrumEditor.cpp
+)
+
+target_compile_definitions(DejaVUSpectrum PUBLIC
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+target_link_libraries(DejaVUSpectrum PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_recommended_config_flags
