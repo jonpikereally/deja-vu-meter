@@ -265,7 +265,22 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
     armAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         proc.apvts, "recordArm", armButton);
 
-    clearButton.onClick = [this] { proc.deleteActiveRecording(); refreshRecordingList(); };
+    clearButton.onClick = [this]
+    {
+        const bool has = proc.getNumRecordings() > 0;
+        const juce::String sel = proc.getRecordingName (proc.getActiveRecording());
+
+        juce::PopupMenu m;
+        m.addItem (1, has && sel.isNotEmpty() ? "Delete take: " + sel : "Delete selected take", has, false);
+        m.addItem (2, "Delete ALL takes", has, false);
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (clearButton),
+            [this] (int r)
+            {
+                if      (r == 1) proc.deleteActiveRecording();
+                else if (r == 2) proc.deleteAllRecordings();
+                if (r != 0) refreshRecordingList();
+            });
+    };
     addAndMakeVisible (clearButton);
 
     nameLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
@@ -522,7 +537,17 @@ void TimelineVUAudioProcessorEditor::timerCallback()
         juce::dontSendNotification);
 
     const bool autoOn = *proc.apvts.getRawParameterValue ("autoMode") > 0.5f;
-    armButton.setEnabled (! autoOn);
+    if (autoOn != lastAutoOn)
+    {
+        armButton.setEnabled (true);
+        if (! autoOn)   // leaving auto: restore normal button colours
+        {
+            armButton.setColour (juce::TextButton::buttonColourId,
+                                 getLookAndFeel().findColour (juce::TextButton::buttonColourId));
+            armButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffe0483a));
+        }
+        lastAutoOn = autoOn;
+    }
 
     if (proc.captureFinished.exchange (false))
     {
@@ -543,6 +568,13 @@ void TimelineVUAudioProcessorEditor::timerCallback()
         blinkOn = ! blinkOn;
         if (proc.recordingNow.load())
             repaint (getLocalBounds().removeFromTop (30));
+
+        if (autoOn)   // flash the ARM button amber while auto-record is active
+        {
+            const auto c = blinkOn ? juce::Colour (0xffe0a53a) : juce::Colour (0xff4a3a12);
+            armButton.setColour (juce::TextButton::buttonColourId, c);
+            armButton.setColour (juce::TextButton::buttonOnColourId, c);
+        }
     }
 
     const double secs = proc.playheadSeconds.load();

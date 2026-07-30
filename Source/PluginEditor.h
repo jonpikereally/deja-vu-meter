@@ -128,6 +128,7 @@ private:
     float recDispL  { 0.0f }, recDispR  { 0.0f }, recPkL  { 0.0f }, recPkR  { 0.0f };
     bool  blinkOn { false };
     int   blinkCounter { 0 };
+    bool  lastAutoOn { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TimelineVUAudioProcessorEditor)
 };
