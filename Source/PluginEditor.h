@@ -100,11 +100,18 @@ private:
     juce::ComboBox   takesBox;
     juce::Label      takesLabel   { {}, "TAKE" };
 
-    // Status: REC lamp + playhead position.
+    // Peak tagging.
+    juce::ComboBox peaksBox;
+    juce::Label    peaksLabel  { {}, "PEAKS" };
+    juce::ComboBox threshBox;
+
+    // Status: playhead position + selected-peak target.
+    juce::Label targetLabel;
     juce::Label positionLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> skinAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> threshAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   armAtt;
 
     // Display smoothing / peak hold.

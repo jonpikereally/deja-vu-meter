@@ -269,9 +269,46 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
         {
             proc.selectRecording (id - 1);
             nameField.setText (proc.getRecordingName (id - 1), juce::dontSendNotification);
+            refreshRecordingList();
         }
     };
     addAndMakeVisible (takesBox);
+
+    // Peak threshold selector (parameter-backed) + peaks list.
+    peaksLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
+    peaksLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    addAndMakeVisible (peaksLabel);
+
+    threshBox.addItem ("0 dBFS", 1);
+    threshBox.addItem ("-1 dBFS", 2);
+    threshBox.addItem ("-3 dBFS", 3);
+    threshBox.addItem ("-6 dBFS", 4);
+    addAndMakeVisible (threshBox);
+    threshAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        proc.apvts, "peakThresh", threshBox);
+
+    peaksBox.setTextWhenNoChoicesAvailable ("no peaks tagged");
+    peaksBox.onChange = [this]
+    {
+        const int id = peaksBox.getSelectedId();
+        if (id > 0)
+        {
+            const auto pk = proc.getPeak (id - 1);
+            const int mm = (int) (pk.seconds / 60.0);
+            const double ss = pk.seconds - mm * 60.0;
+            targetLabel.setText (
+                juce::String::formatted ("GO TO   %d.%d      %d:%05.2f      %+.1f dB",
+                                         pk.bar, pk.beat, mm, ss, pk.db),
+                juce::dontSendNotification);
+        }
+    };
+    addAndMakeVisible (peaksBox);
+
+    targetLabel.setJustificationType (juce::Justification::centred);
+    targetLabel.setColour (juce::Label::textColourId, juce::Colour (0xffe0a53a));
+    targetLabel.setColour (juce::Label::backgroundColourId, juce::Colour (0xff23200f));
+    targetLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    addAndMakeVisible (targetLabel);
 
     positionLabel.setJustificationType (juce::Justification::centred);
     positionLabel.setColour (juce::Label::textColourId, juce::Colour (0xffb0b0b0));
@@ -296,7 +333,7 @@ void TimelineVUAudioProcessorEditor::applySkin()
     liveLabel    .setVisible (! analogSkin);
     analogMeter  .setVisible (analogSkin);
 
-    setSize (analogSkin ? 470 : 360, analogSkin ? 430 : 500);
+    setSize (analogSkin ? 470 : 380, analogSkin ? 520 : 560);
     resized();
 }
 
@@ -309,6 +346,15 @@ void TimelineVUAudioProcessorEditor::refreshRecordingList()
     const int active = proc.getActiveRecording();
     if (active >= 0)
         takesBox.setSelectedId (active + 1, juce::dontSendNotification);
+
+    // Peak markers for the active take.
+    peaksBox.clear (juce::dontSendNotification);
+    for (int i = 0; i < proc.getNumPeaks(); ++i)
+    {
+        const auto pk = proc.getPeak (i);
+        peaksBox.addItem (juce::String::formatted ("%d.%d    %+.1f dB", pk.bar, pk.beat, pk.db), i + 1);
+    }
+    targetLabel.setText ({}, juce::dontSendNotification);
 }
 
 //==============================================================================
@@ -345,7 +391,7 @@ void TimelineVUAudioProcessorEditor::resized()
     auto r = getLocalBounds().reduced (14);
     r.removeFromTop (30);                       // title band
 
-    auto controls = r.removeFromBottom (150);
+    auto controls = r.removeFromBottom (206);
     r.removeFromBottom (8);
 
     // Meter area.
@@ -382,12 +428,23 @@ void TimelineVUAudioProcessorEditor::resized()
     takesBox.setBounds (takeRow);
 
     controls.removeFromTop (6);
+    auto peaksRow = controls.removeFromTop (26);
+    peaksLabel.setBounds (peaksRow.removeFromLeft (46));
+    threshBox.setBounds (peaksRow.removeFromRight (84));
+    peaksRow.removeFromRight (6);
+    peaksBox.setBounds (peaksRow);
+
+    controls.removeFromTop (8);
+    targetLabel.setBounds (controls.removeFromTop (24));
+    controls.removeFromTop (4);
     positionLabel.setBounds (controls.removeFromTop (24));
 }
 
 //==============================================================================
 void TimelineVUAudioProcessorEditor::timerCallback()
 {
+    proc.drainPeaks();   // move any tagged peaks from the audio thread
+
     // Meters.
     const float live = proc.liveLevel.load();
     liveDisplay = juce::jmax (live, liveDisplay * 0.80f);
