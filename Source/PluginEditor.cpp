@@ -339,7 +339,8 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
         const int id = peaksBox.getSelectedId();
         if (id > 0)
         {
-            const auto pk = proc.getPeak (id - 1);
+            const bool mon = *proc.apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
+            const auto pk = mon ? proc.getMonitorPeak (id - 1) : proc.getPeak (id - 1);
             const int mm = (int) (pk.seconds / 60.0);
             targetLabel.setText (
                 juce::String::formatted ("GO TO   %d.%d      %d:%05.2f      %+.1f dB",
@@ -348,6 +349,14 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
         }
     };
     addAndMakeVisible (peaksBox);
+
+    monitorButton.setClickingTogglesState (true);
+    monitorButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
+    monitorButton.setTooltip ("Tag peaks continuously while playing, regardless of arm/auto (last 25)");
+    monitorButton.onClick = [this] { refreshPeaksList(); };
+    addAndMakeVisible (monitorButton);
+    monitorAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        proc.apvts, "peaksMonitor", monitorButton);
 
     targetLabel.setJustificationType (juce::Justification::centred);
     targetLabel.setColour (juce::Label::textColourId, juce::Colour (0xffe0a53a));
@@ -379,7 +388,7 @@ void TimelineVUAudioProcessorEditor::applySkin()
     dialL.setVisible (analogSkin);
     dialR.setVisible (analogSkin);
 
-    setSize (analogSkin ? 520 : 440, analogSkin ? 600 : 640);
+    setSize (analogSkin ? 520 : 440, analogSkin ? 632 : 672);
     resized();
 }
 
@@ -392,13 +401,7 @@ void TimelineVUAudioProcessorEditor::refreshRecordingList()
     if (active >= 0)
         takesBox.setSelectedId (active + 1, juce::dontSendNotification);
 
-    peaksBox.clear (juce::dontSendNotification);
-    for (int i = 0; i < proc.getNumPeaks(); ++i)
-    {
-        const auto pk = proc.getPeak (i);
-        peaksBox.addItem (juce::String::formatted ("%d.%d    %+.1f dB", pk.bar, pk.beat, pk.db), i + 1);
-    }
-    targetLabel.setText ({}, juce::dontSendNotification);
+    refreshPeaksList();
 
     const auto info = proc.getRecordingInfo (proc.getActiveRecording());
     if (info.valid)
@@ -413,6 +416,22 @@ void TimelineVUAudioProcessorEditor::refreshRecordingList()
             juce::dontSendNotification);
     }
     else { takeInfoLabel.setText ({}, juce::dontSendNotification); }
+}
+
+void TimelineVUAudioProcessorEditor::refreshPeaksList()
+{
+    const bool mon = *proc.apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
+    peaksBox.setTextWhenNoChoicesAvailable (mon ? "monitoring\xe2\x80\xa6" : "no peaks tagged");
+    peaksBox.clear (juce::dontSendNotification);
+    const int n = mon ? proc.getNumMonitorPeaks() : proc.getNumPeaks();
+    for (int i = 0; i < n; ++i)
+    {
+        const auto pk = mon ? proc.getMonitorPeak (i) : proc.getPeak (i);
+        peaksBox.addItem (juce::String::formatted ("%d.%d    %+.1f dB", pk.bar, pk.beat, pk.db), i + 1);
+    }
+    targetLabel.setText ({}, juce::dontSendNotification);
+    lastPeaksMonitorOn = mon;
+    lastMonitorRev = proc.getMonitorRev();
 }
 
 //==============================================================================
@@ -446,7 +465,7 @@ void TimelineVUAudioProcessorEditor::resized()
     auto r = getLocalBounds().reduced (14);
     r.removeFromTop (30);
 
-    auto controls = r.removeFromBottom (214);
+    auto controls = r.removeFromBottom (246);
     r.removeFromBottom (8);
     numericLabel.setBounds (r.removeFromBottom (24));
     r.removeFromBottom (4);
@@ -497,6 +516,11 @@ void TimelineVUAudioProcessorEditor::resized()
     peaksRow.removeFromRight (6);
     peaksBox.setBounds (peaksRow);
 
+    controls.removeFromTop (6);
+    auto monRow = controls.removeFromTop (26);
+    monRow.removeFromLeft (46);
+    monitorButton.setBounds (monRow.removeFromLeft (170));
+
     controls.removeFromTop (8);
     targetLabel.setBounds (controls.removeFromTop (24));
     controls.removeFromTop (4);
@@ -507,6 +531,11 @@ void TimelineVUAudioProcessorEditor::resized()
 void TimelineVUAudioProcessorEditor::timerCallback()
 {
     proc.drainPeaks();
+
+    // Peaks Monitor: keep the list in sync while it updates live.
+    const bool monOn = *proc.apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
+    if (monOn != lastPeaksMonitorOn || (monOn && proc.getMonitorRev() != lastMonitorRev))
+        refreshPeaksList();
 
     auto upd = [] (float v, float& disp, float& pk)
     {

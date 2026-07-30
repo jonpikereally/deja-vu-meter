@@ -28,6 +28,7 @@ public:
         float  db      { 0.0f };
         int    bar     { 1 };
         int    beat    { 1 };
+        bool   monitor { false };   // tagged by Peaks Monitor (not a take)
     };
 
     struct Recording
@@ -119,6 +120,15 @@ public:
         }
         return {};
     }
+
+    // Peaks Monitor list (live, not tied to a take).
+    int      getNumMonitorPeaks() const { return (int) monitorPeaks.size(); }
+    PeakMark getMonitorPeak (int i) const
+    {
+        return juce::isPositiveAndBelow (i, (int) monitorPeaks.size()) ? monitorPeaks[(size_t) i]
+                                                                       : PeakMark{};
+    }
+    int getMonitorRev() const { return monitorRev; }
     TakeInfo getRecordingInfo (int i) const
     {
         TakeInfo t;
@@ -149,9 +159,13 @@ private:
 
     // Peak tagging.
     std::vector<PeakMark>               capturePeaks;
+    std::vector<PeakMark>               monitorPeaks;      // Peaks Monitor list
+    int                                 monitorRev { 0 };  // bumps when monitorPeaks changes
     std::array<PeakMark, kPeakFifoSize> peakFifoBuf;
     juce::AbstractFifo                  peakFifo { kPeakFifoSize };
     std::atomic<bool>                   newCaptureStarted { false };
+    std::atomic<bool>                   newMonitorStarted { false };
+    bool     prevMonitorOn { false };
     bool     peakInEvent   { false };
     float    peakEventMaxDb { -200.0f };
     PeakMark peakEventMark;
