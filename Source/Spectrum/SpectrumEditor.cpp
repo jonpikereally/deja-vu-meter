@@ -147,8 +147,7 @@ DejaVUSpectrumAudioProcessorEditor::DejaVUSpectrumAudioProcessorEditor (DejaVUSp
     addAndMakeVisible (armButton);
     armAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(proc.apvts, "recordArm", armButton);
 
-    clearButton.setButtonText ("DEL  \xE2\x96\xBE");
-    clearButton.setTooltip ("Delete takes — opens a menu (delete this take or all takes).");
+    clearButton.setTooltip ("Delete takes - opens a menu (delete this take or all takes).");
     clearButton.onClick = [this]
     {
         const bool has = proc.getNumRecordings() > 0;
@@ -232,7 +231,7 @@ DejaVUSpectrumAudioProcessorEditor::DejaVUSpectrumAudioProcessorEditor (DejaVUSp
     monitorButton.setClickingTogglesState (true);
     monitorButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
     monitorButton.setTooltip ("Peaks Monitor: continuously tags level peaks while the transport plays "
-                              "\xe2\x80\x94 no need to arm or auto-record. Keeps the last 25.");
+                              "- no need to arm or auto-record. Keeps the last 25.");
     monitorButton.onClick = [this] { refreshPeaksList(); };
     addAndMakeVisible (monitorButton);
     monitorAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(proc.apvts, "peaksMonitor", monitorButton);
@@ -296,7 +295,7 @@ void DejaVUSpectrumAudioProcessorEditor::refreshRecordingList()
 void DejaVUSpectrumAudioProcessorEditor::refreshPeaksList()
 {
     const bool mon = *proc.apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
-    peaksBox.setTextWhenNoChoicesAvailable (mon ? "monitoring\xe2\x80\xa6" : "no peaks tagged");
+    peaksBox.setTextWhenNoChoicesAvailable (mon ? "monitoring..." : "no peaks tagged");
     peaksBox.clear (juce::dontSendNotification);
     const int n = mon ? proc.getNumMonitorPeaks() : proc.getNumPeaks();
     for (int i = 0; i < n; ++i)
