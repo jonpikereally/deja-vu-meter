@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "MenuButton.h"
 
 //==============================================================================
 // Stereo vertical bar meter: two bars (L, R). Ghost mode draws hollow/amber.
@@ -101,7 +102,7 @@ private:
     juce::ComboBox   skinBox;
     juce::TextButton autoButton  { "AUTO" };
     juce::TextButton armButton   { "ARM" };
-    juce::TextButton clearButton { "DEL" };
+    MenuButton       clearButton { "DEL" };
 
     // Recording naming + history.
     juce::TextEditor nameField;

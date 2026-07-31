@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "SpectrumProcessor.h"
+#include "../MenuButton.h"
 
 //==============================================================================
 inline float specNorm (float linear, float minDb)
@@ -72,7 +73,7 @@ private:
 
     juce::TextButton autoButton  { "AUTO" };
     juce::TextButton armButton   { "ARM" };
-    juce::TextButton clearButton { "DEL" };
+    MenuButton       clearButton { "DEL" };
 
     juce::TextEditor nameField;
     juce::Label      nameLabel  { {}, "NAME" };
