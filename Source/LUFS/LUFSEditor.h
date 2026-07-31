@@ -10,16 +10,19 @@
 class LoudnessMeter : public juce::Component
 {
 public:
-    void update (float shortT, float rec, float target, bool hasRec)
-    { st = shortT; recV = rec; target_ = target; hasRec_ = hasRec; repaint(); }
+    void update (float shortT, float rec, float target, bool hasRec, bool split)
+    { st = shortT; recV = rec; target_ = target; hasRec_ = hasRec; split_ = split; repaint(); }
     void paint (juce::Graphics&) override;
 
     static constexpr float kMin = -40.0f, kMax = 0.0f;
     static float norm (float lufs) { return juce::jlimit (0.0f, 1.0f, (lufs - kMin) / (kMax - kMin)); }
 
 private:
+    void paintBar (juce::Graphics&, juce::Rectangle<float> bar, float lufs, juce::Colour c, const char* label);
+    void drawScaleAndTarget (juce::Graphics&, juce::Rectangle<float> barsArea, juce::Rectangle<float> labels);
+
     float st { -100.0f }, recV { -100.0f }, target_ { -1000.0f };
-    bool  hasRec_ { false };
+    bool  hasRec_ { false }, split_ { false };
 };
 
 //==============================================================================
@@ -47,6 +50,7 @@ private:
     MenuButton       clearButton { "DEL" };
     juce::ComboBox   targetBox;
     juce::Label      targetLabel { {}, "TARGET" };
+    juce::TextButton splitButton { "2 BARS" };
 
     juce::TextEditor nameField;
     juce::Label      nameLabel  { {}, "NAME" };
@@ -56,7 +60,7 @@ private:
     juce::Label      takeInfoLabel;
     juce::Label      positionLabel;
 
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   autoAtt, armAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   autoAtt, armAtt, splitAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> minLenAtt, targetAtt;
 
     bool blinkOn { false };

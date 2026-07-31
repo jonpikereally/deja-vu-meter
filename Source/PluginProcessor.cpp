@@ -15,6 +15,8 @@ TimelineVUAudioProcessor::createLayout()
         ParameterID { "meterMode", 1 }, "Meter Mode", StringArray { "VU", "Peak" }, 0));
     layout.add (std::make_unique<AudioParameterChoice>(
         ParameterID { "meterSkin", 1 }, "Meter Skin", StringArray { "Bar", "Analog" }, 1));
+    layout.add (std::make_unique<AudioParameterBool>(
+        ParameterID { "compactBars", 1 }, "Compact Bars", true));
     layout.add (std::make_unique<AudioParameterChoice>(
         ParameterID { "peakThresh", 1 }, "Peak Threshold",
         StringArray { "0 dBFS", "-1 dBFS", "-3 dBFS", "-6 dBFS" }, 1));

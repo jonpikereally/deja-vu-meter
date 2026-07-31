@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(TimelineVU VERSION 0.12.0)
+project(TimelineVU VERSION 0.12.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,9 +29,9 @@ juce_add_plugin(TimelineVU
     PLUGIN_MANUFACTURER_CODE Jpke          # 4 chars, first upper
     PLUGIN_CODE              Djvu          # 4 chars, unique per plugin
     COMPANY_NAME             "Jon Pike"
-    BUNDLE_ID                com.jonpike.dejavu
+    BUNDLE_ID                com.jonpike.dejavumeter
     FORMATS                  AU VST3 Standalone
-    PRODUCT_NAME             "Deja VU"
+    PRODUCT_NAME             "Deja VU Meter"
     IS_SYNTH                 FALSE
     NEEDS_MIDI_INPUT         FALSE
     NEEDS_MIDI_OUTPUT        FALSE
