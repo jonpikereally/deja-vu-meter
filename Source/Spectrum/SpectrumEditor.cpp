@@ -10,6 +10,14 @@ void SpectrumCurve::paint (juce::Graphics& g)
     g.drawRoundedRectangle (b, 3.0f, 1.0f);
 
     auto in = b.reduced (6.0f);
+    if (delta_ && hasRec && liveN != nullptr && recN != nullptr && count > 1)
+        paintDelta (g, in);
+    else
+        paintNormal (g, in);
+}
+
+void SpectrumCurve::paintNormal (juce::Graphics& g, juce::Rectangle<float> in)
+{
     const float w = in.getWidth(), h = in.getHeight(), left = in.getX(), bottom = in.getBottom();
 
     g.setFont (juce::FontOptions (9.0f));
@@ -76,6 +84,67 @@ void SpectrumCurve::paint (juce::Graphics& g)
     }
 }
 
+void SpectrumCurve::paintDelta (juce::Graphics& g, juce::Rectangle<float> in)
+{
+    const float w = in.getWidth(), left = in.getX(), right = in.getRight();
+    const float centre = in.getCentreY(), half = in.getHeight() * 0.5f;
+    const float range = juce::jmax (1.0f, deltaRange_);
+
+    auto xOf = [&] (int i) { return left + (float) i / (count - 1) * w; };
+    auto yOf = [&] (float dDb) { return centre - juce::jlimit (-range, range, dDb) / range * half; };
+    auto deltaAt = [&] (int i)
+    {
+        const float lv = juce::jmax (juce::Decibels::gainToDecibels (liveN[i], -120.0f), -90.0f);
+        const float rv = juce::jmax (juce::Decibels::gainToDecibels (recN[i],  -120.0f), -90.0f);
+        return lv - rv;
+    };
+
+    // dB grid (relative), centre line emphasised.
+    g.setFont (juce::FontOptions (9.0f));
+    for (float v : { range, range * 0.5f, 0.0f, -range * 0.5f, -range })
+    {
+        const float y = yOf (v);
+        g.setColour (v == 0.0f ? juce::Colour (0x55ffffff) : juce::Colour (0x18ffffff));
+        g.drawHorizontalLine ((int) y, left, right);
+        g.setColour (juce::Colour (0xff666666));
+        g.drawText (juce::String (v > 0.0f ? "+" : "") + juce::String (v, 0),
+                    juce::Rectangle<float> (left + 2, y - 10, 34, 12), juce::Justification::left);
+    }
+
+    // Filled area between the delta curve and the centre: green above, red below.
+    juce::Path poly;
+    poly.startNewSubPath (left, centre);
+    for (int i = 0; i < count; ++i) poly.lineTo (xOf (i), yOf (deltaAt (i)));
+    poly.lineTo (right, centre);
+    poly.closeSubPath();
+
+    g.saveState();
+    g.reduceClipRegion (juce::Rectangle<int> ((int) left, (int) in.getY(), (int) w, (int) (centre - in.getY())));
+    g.setColour (juce::Colour (0x8836c46b));
+    g.fillPath (poly);
+    g.restoreState();
+
+    g.saveState();
+    g.reduceClipRegion (juce::Rectangle<int> ((int) left, (int) centre, (int) w, (int) (in.getBottom() - centre)));
+    g.setColour (juce::Colour (0x88e0483a));
+    g.fillPath (poly);
+    g.restoreState();
+
+    // Delta curve line.
+    juce::Path line;
+    for (int i = 0; i < count; ++i)
+    {
+        const float x = xOf (i), y = yOf (deltaAt (i));
+        if (i == 0) line.startNewSubPath (x, y); else line.lineTo (x, y);
+    }
+    g.setColour (juce::Colour (0xffe8e8e8));
+    g.strokePath (line, juce::PathStrokeType (1.5f));
+
+    g.setColour (juce::Colour (0xff888888));
+    g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+    g.drawText ("LIVE - REC  (dB)", in.reduced (4.0f).removeFromTop (14.0f), juce::Justification::centredRight);
+}
+
 //==============================================================================
 void BandBars::paint (juce::Graphics& g)
 {
@@ -91,6 +160,26 @@ void BandBars::paint (juce::Graphics& g)
     auto in = b.reduced (4.0f);
     const float w = in.getWidth(), h = in.getHeight(), bottom = in.getBottom();
     const float bw = w / (float) count;
+
+    // Delta mode: bars grow up/down from a centre line by (live - rec) dB.
+    if (delta_ && hasRec && recN != nullptr)
+    {
+        const float centre = in.getCentreY(), half = h * 0.5f;
+        const float range = juce::jmax (1.0f, deltaRange_);
+        g.setColour (juce::Colour (0x55ffffff));
+        g.drawHorizontalLine ((int) centre, in.getX(), in.getRight());
+        for (int i = 0; i < count; ++i)
+        {
+            const float x = in.getX() + i * bw;
+            const float lv = juce::jmax (juce::Decibels::gainToDecibels (liveN[i], -120.0f), -90.0f);
+            const float rv = juce::jmax (juce::Decibels::gainToDecibels (recN[i],  -120.0f), -90.0f);
+            const float d  = juce::jlimit (-range, range, lv - rv);
+            const float y  = centre - d / range * half;
+            g.setColour (d >= 0.0f ? juce::Colour (0xff36c46b) : juce::Colour (0xffe0483a));
+            g.fillRect (juce::Rectangle<float> (x + 0.5f, juce::jmin (centre, y), bw - 1.0f, std::abs (y - centre)));
+        }
+        return;
+    }
 
     for (int i = 0; i < count; ++i)
     {
@@ -146,6 +235,13 @@ DejaVUSpectrumAudioProcessorEditor::DejaVUSpectrumAudioProcessorEditor (DejaVUSp
                           "then disarms itself when it stops.");
     addAndMakeVisible (armButton);
     armAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(proc.apvts, "recordArm", armButton);
+
+    deltaButton.setClickingTogglesState (true);
+    deltaButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffe0a53a));
+    deltaButton.setTooltip ("Delta view: show only the difference (live - recorded) per band, "
+                            "centred at 0. Needs a recorded take playing back.");
+    addAndMakeVisible (deltaButton);
+    deltaAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(proc.apvts, "showDelta", deltaButton);
 
     clearButton.setTooltip ("Delete takes - opens a menu (delete this take or all takes).");
     clearButton.onClick = [this]
@@ -350,9 +446,10 @@ void DejaVUSpectrumAudioProcessorEditor::resized()
     bars.setBounds (barsArea);
 
     auto buttons = controls.removeFromTop (30);
-    const int bw = buttons.getWidth() / 3;
+    const int bw = buttons.getWidth() / 4;
     autoButton.setBounds  (buttons.removeFromLeft (bw).reduced (3, 0));
     armButton.setBounds   (buttons.removeFromLeft (bw).reduced (3, 0));
+    deltaButton.setBounds (buttons.removeFromLeft (bw).reduced (3, 0));
     clearButton.setBounds (buttons.reduced (3, 0));
 
     controls.removeFromTop (8);
@@ -408,17 +505,37 @@ void DejaVUSpectrumAudioProcessorEditor::timerCallback()
 
     const float zoom = *proc.apvts.getRawParameterValue ("vZoom");
     const float minDb = -90.0f / juce::jmax (1.0f, zoom);
-    const bool hasRec = proc.hasRecording.load();
-    curve.update (hasRec, minDb);
-    bars.update (hasRec, minDb);
+    const bool  hasRec = proc.hasRecording.load();
+    const bool  deltaMode = *proc.apvts.getRawParameterValue ("showDelta") > 0.5f && hasRec;
+    const float deltaRange = 24.0f / juce::jmax (1.0f, zoom);
+    curve.update (hasRec, minDb, deltaMode, deltaRange);
+    bars.update (hasRec, minDb, deltaMode, deltaRange);
 
-    int maxb = 0;
-    for (int b = 1; b < kBands; ++b) if (liveDisp[(size_t) b] > liveDisp[(size_t) maxb]) maxb = b;
-    const float f = centres[(size_t) maxb];
-    numericLabel.setText (
-        "PEAK  " + (f >= 1000.0f ? juce::String (f / 1000.0f, 1) + " kHz" : juce::String ((int) f) + " Hz")
-        + juce::String::formatted ("    %.1f dB", juce::Decibels::gainToDecibels (liveDisp[(size_t) maxb], -120.0f)),
-        juce::dontSendNotification);
+    auto floorDb = [] (float lin) { return juce::jmax (juce::Decibels::gainToDecibels (lin, -120.0f), -90.0f); };
+    if (deltaMode)
+    {
+        int mb = 0; float best = -1.0f;
+        for (int b = 0; b < kBands; ++b)
+        {
+            const float d = std::abs (floorDb (liveDisp[(size_t) b]) - floorDb (recDisp[(size_t) b]));
+            if (d > best) { best = d; mb = b; }
+        }
+        const float f = centres[(size_t) mb];
+        numericLabel.setText (
+            "MAX DELTA  " + (f >= 1000.0f ? juce::String (f / 1000.0f, 1) + " kHz" : juce::String ((int) f) + " Hz")
+            + juce::String::formatted ("    %+.1f dB", floorDb (liveDisp[(size_t) mb]) - floorDb (recDisp[(size_t) mb])),
+            juce::dontSendNotification);
+    }
+    else
+    {
+        int maxb = 0;
+        for (int b = 1; b < kBands; ++b) if (liveDisp[(size_t) b] > liveDisp[(size_t) maxb]) maxb = b;
+        const float f = centres[(size_t) maxb];
+        numericLabel.setText (
+            "PEAK  " + (f >= 1000.0f ? juce::String (f / 1000.0f, 1) + " kHz" : juce::String ((int) f) + " Hz")
+            + juce::String::formatted ("    %.1f dB", juce::Decibels::gainToDecibels (liveDisp[(size_t) maxb], -120.0f)),
+            juce::dontSendNotification);
+    }
 
     const bool autoOn = *proc.apvts.getRawParameterValue ("autoMode") > 0.5f;
     if (autoOn != lastAutoOn)
