@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(TimelineVU VERSION 0.11.0)
+project(TimelineVU VERSION 0.12.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -89,6 +89,66 @@ target_compile_definitions(DejaVUSpectrum PUBLIC
 )
 
 target_link_libraries(DejaVUSpectrum PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)
+
+# ---------------------------------------------------------------------------
+# Third plugin: Deja VU LUFS (loudness + true peak, timeline recording)
+# ---------------------------------------------------------------------------
+juce_add_plugin(DejaVULUFS
+    PLUGIN_MANUFACTURER_CODE Jpke
+    PLUGIN_CODE              Dvlu
+    COMPANY_NAME             "Jon Pike"
+    BUNDLE_ID                com.jonpike.dejavulufs
+    FORMATS                  AU VST3 Standalone
+    PRODUCT_NAME             "Deja VU LUFS"
+    IS_SYNTH                 FALSE
+    NEEDS_MIDI_INPUT         FALSE
+    NEEDS_MIDI_OUTPUT        FALSE
+    COPY_PLUGIN_AFTER_BUILD  TRUE
+)
+juce_generate_juce_header(DejaVULUFS)
+target_sources(DejaVULUFS PRIVATE
+    Source/LUFS/LUFSProcessor.cpp
+    Source/LUFS/LUFSEditor.cpp
+)
+target_compile_definitions(DejaVULUFS PUBLIC
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(DejaVULUFS PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)
+
+# ---------------------------------------------------------------------------
+# Fourth plugin: Deja VU Pitch (pitch / intonation, timeline recording)
+# ---------------------------------------------------------------------------
+juce_add_plugin(DejaVUPitch
+    PLUGIN_MANUFACTURER_CODE Jpke
+    PLUGIN_CODE              Dvpi
+    COMPANY_NAME             "Jon Pike"
+    BUNDLE_ID                com.jonpike.dejavupitch
+    FORMATS                  AU VST3 Standalone
+    PRODUCT_NAME             "Deja VU Pitch"
+    IS_SYNTH                 FALSE
+    NEEDS_MIDI_INPUT         FALSE
+    NEEDS_MIDI_OUTPUT        FALSE
+    COPY_PLUGIN_AFTER_BUILD  TRUE
+)
+juce_generate_juce_header(DejaVUPitch)
+target_sources(DejaVUPitch PRIVATE
+    Source/Pitch/PitchProcessor.cpp
+    Source/Pitch/PitchEditor.cpp
+)
+target_compile_definitions(DejaVUPitch PUBLIC
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(DejaVUPitch PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_recommended_config_flags
