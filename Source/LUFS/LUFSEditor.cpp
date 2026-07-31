@@ -2,6 +2,41 @@
 #include <cmath>
 
 //==============================================================================
+void LoudnessMeter::drawScaleAndTarget (juce::Graphics& g, juce::Rectangle<float> barsArea, juce::Rectangle<float> labels)
+{
+    const float w = barsArea.getWidth(), left = barsArea.getX();
+    g.setFont (juce::FontOptions (9.0f));
+    for (int l : { -40, -30, -23, -16, -14, -9, 0 })
+    {
+        const float x = left + norm ((float) l) * w;
+        g.setColour (juce::Colour (0x22ffffff));
+        g.drawVerticalLine ((int) x, barsArea.getY(), barsArea.getBottom());
+        g.setColour (juce::Colour (0xff777777));
+        g.drawText (juce::String (l), juce::Rectangle<float> (x - 12, labels.getY(), 24, 12), juce::Justification::centred);
+    }
+    if (target_ > -100.0f)
+    {
+        const float x = left + norm (target_) * w;
+        g.setColour (juce::Colours::white.withAlpha (0.9f));
+        g.fillRect (juce::Rectangle<float> (x - 1.0f, barsArea.getY(), 2.0f, barsArea.getHeight()));
+    }
+}
+
+void LoudnessMeter::paintBar (juce::Graphics& g, juce::Rectangle<float> bar, float lufs, juce::Colour c, const char* label)
+{
+    const float w = bar.getWidth(), left = bar.getX();
+    g.setColour (juce::Colour (0xff0d0d0d));
+    g.fillRect (bar);
+    if (lufs > -70.0f)
+    {
+        g.setColour (c);
+        g.fillRect (juce::Rectangle<float> (left, bar.getY(), norm (lufs) * w, bar.getHeight()));
+    }
+    g.setColour (juce::Colour (0xffcfcfcf));
+    g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+    g.drawText (label, bar.reduced (4.0f, 0.0f), juce::Justification::centredLeft);
+}
+
 void LoudnessMeter::paint (juce::Graphics& g)
 {
     auto b = getLocalBounds().toFloat().reduced (1.0f);
@@ -14,31 +49,36 @@ void LoudnessMeter::paint (juce::Graphics& g)
     auto labels = in.removeFromBottom (14.0f);
     const float w = in.getWidth(), left = in.getX();
 
-    // Live fill (green -> red).
+    if (split_)
+    {
+        // Two stacked bars: LIVE on top, RECORDED below.
+        auto full = in;
+        auto liveBar = in.removeFromTop (in.getHeight() * 0.5f).reduced (0.0f, 1.5f);
+        auto recBar  = in.reduced (0.0f, 1.5f);
+
+        g.setColour (juce::Colour (0xff0d0d0d)); g.fillRect (liveBar);
+        if (st > -70.0f)
+        {
+            g.setGradientFill (juce::ColourGradient (juce::Colour (0xff36c46b), left, 0.0f,
+                                                     juce::Colour (0xffe0483a), left + w, 0.0f, false));
+            g.fillRect (juce::Rectangle<float> (left, liveBar.getY(), norm (st) * w, liveBar.getHeight()));
+        }
+        g.setColour (juce::Colour (0xffcfcfcf)); g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        g.drawText ("LIVE", liveBar.reduced (4.0f, 0.0f), juce::Justification::centredLeft);
+
+        paintBar (g, recBar, hasRec_ ? recV : -100.0f, juce::Colour (0xffe0a53a), "REC");
+
+        drawScaleAndTarget (g, full, labels);
+        return;
+    }
+
+    // Overlapping: single live bar + recorded ghost marker.
     g.setGradientFill (juce::ColourGradient (juce::Colour (0xff36c46b), left, 0.0f,
                                              juce::Colour (0xffe0483a), left + w, 0.0f, false));
     g.fillRect (juce::Rectangle<float> (left, in.getY(), norm (st) * w, in.getHeight()));
 
-    // Scale ticks + labels.
-    g.setFont (juce::FontOptions (9.0f));
-    for (int l : { -40, -30, -23, -16, -14, -9, 0 })
-    {
-        const float x = left + norm ((float) l) * w;
-        g.setColour (juce::Colour (0x22ffffff));
-        g.drawVerticalLine ((int) x, in.getY(), in.getBottom());
-        g.setColour (juce::Colour (0xff777777));
-        g.drawText (juce::String (l), juce::Rectangle<float> (x - 12, labels.getY(), 24, 12), juce::Justification::centred);
-    }
+    drawScaleAndTarget (g, in, labels);
 
-    // Target line.
-    if (target_ > -100.0f)
-    {
-        const float x = left + norm (target_) * w;
-        g.setColour (juce::Colours::white.withAlpha (0.9f));
-        g.fillRect (juce::Rectangle<float> (x - 1.0f, in.getY(), 2.0f, in.getHeight()));
-    }
-
-    // Recorded ghost marker.
     if (hasRec_ && recV > -70.0f)
     {
         const float x = left + norm (recV) * w;
@@ -96,6 +136,12 @@ DejaVULUFSAudioProcessorEditor::DejaVULUFSAudioProcessorEditor (DejaVULUFSAudioP
     targetBox.setTooltip ("Reference loudness target line on the meter.");
     addAndMakeVisible (targetBox);
     targetAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(proc.apvts, "target", targetBox);
+
+    splitButton.setClickingTogglesState (true);
+    splitButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
+    splitButton.setTooltip ("Show live and recorded loudness as two separate bars instead of one bar with a ghost marker.");
+    addAndMakeVisible (splitButton);
+    splitAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(proc.apvts, "splitMeter", splitButton);
 
     nameLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
     nameLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
@@ -214,6 +260,8 @@ void DejaVULUFSAudioProcessorEditor::resized()
     controls.removeFromTop (6);
     auto tRow = controls.removeFromTop (26);
     targetLabel.setBounds (tRow.removeFromLeft (56));
+    splitButton.setBounds (tRow.removeFromRight (84));
+    tRow.removeFromRight (6);
     targetBox.setBounds (tRow);
 
     controls.removeFromTop (6);
@@ -247,7 +295,8 @@ void DejaVULUFSAudioProcessorEditor::timerCallback()
     tpLabel.setText (juce::String (tp, 1) + " dBTP", juce::dontSendNotification);
     tpLabel.setColour (juce::Label::textColourId, tp > -1.0f ? juce::Colour (0xffe0483a) : juce::Colour (0xffe8e8e8));
 
-    meter.update (st, proc.recordedShortTerm.load(), proc.targetLufs(), proc.hasRecording.load());
+    meter.update (st, proc.recordedShortTerm.load(), proc.targetLufs(), proc.hasRecording.load(),
+                  *proc.apvts.getRawParameterValue ("splitMeter") > 0.5f);
 
     const bool autoOn = *proc.apvts.getRawParameterValue ("autoMode") > 0.5f;
     if (autoOn != lastAutoOn)

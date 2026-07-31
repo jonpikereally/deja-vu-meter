@@ -12,9 +12,12 @@ class VUMeter : public juce::Component
 public:
     explicit VUMeter (bool ghost) : isGhost (ghost) {}
 
-    void setValues (float lL, float pL, float lR, float pR)
+    void setValues (float lL, float pL, float lR, float pR,
+                    float rL = -100.0f, float rR = -100.0f, bool showRec = false)
     {
-        levL = lL; pkL = pL; levR = lR; pkR = pR; repaint();
+        levL = lL; pkL = pL; levR = lR; pkR = pR;
+        recL = rL; recR = rR; showRec_ = showRec;
+        repaint();
     }
 
     static float toNorm (float linear)
@@ -29,10 +32,13 @@ public:
     static constexpr float kMaxDb =   6.0f;
 
 private:
-    void drawBar (juce::Graphics&, juce::Rectangle<float>, float level, float peak, const char* label);
+    void drawBar (juce::Graphics&, juce::Rectangle<float>, float level, float peak,
+                  float recMark, bool showRec, const char* label);
 
     bool  isGhost;
     float levL { 0.0f }, pkL { 0.0f }, levR { 0.0f }, pkR { 0.0f };
+    float recL { -100.0f }, recR { -100.0f };
+    bool  showRec_ { false };
 };
 
 //==============================================================================
@@ -100,6 +106,7 @@ private:
     // Controls.
     juce::ComboBox   modeBox;
     juce::ComboBox   skinBox;
+    juce::TextButton compactButton { "2 BARS" };
     juce::TextButton autoButton  { "AUTO" };
     juce::TextButton armButton   { "ARM" };
     MenuButton       clearButton { "DEL" };
@@ -123,6 +130,7 @@ private:
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> skinAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   compactAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> threshAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> minLenAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   autoAtt;

@@ -46,6 +46,7 @@ DejaVULUFSAudioProcessor::createLayout()
         StringArray { "Off", "0.5 s", "1 s", "2 s", "5 s" }, 0));
     layout.add (std::make_unique<AudioParameterChoice>(ParameterID { "target", 1 }, "Target",
         StringArray { "Off", "-14 (streaming)", "-16 (podcast)", "-23 (EBU R128)" }, 0));
+    layout.add (std::make_unique<AudioParameterBool>(ParameterID { "splitMeter", 1 }, "Split Meter", true));
     layout.add (std::make_unique<AudioParameterBool>(ParameterID { "recordArm", 1 }, "Record Arm", false));
     return layout;
 }

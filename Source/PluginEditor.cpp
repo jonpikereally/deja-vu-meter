@@ -4,7 +4,7 @@
 // Stereo bar meter
 //==============================================================================
 void VUMeter::drawBar (juce::Graphics& g, juce::Rectangle<float> area,
-                       float level, float peak, const char* label)
+                       float level, float peak, float recMark, bool showRec, const char* label)
 {
     auto labelArea = area.removeFromBottom (12.0f);
     const float h = area.getHeight();
@@ -46,6 +46,16 @@ void VUMeter::drawBar (juce::Graphics& g, juce::Rectangle<float> area,
         g.fillRect (juce::Rectangle<float> (area.getX(), bottom - peakN * h - 1.5f, area.getWidth(), 2.0f));
     }
 
+    // Recorded ghost marker (compact overlay mode).
+    if (showRec && recMark > 0.0005f)
+    {
+        const float y = bottom - toNorm (recMark) * h;
+        g.setColour (juce::Colour (0xffe0a53a));
+        g.fillRect (juce::Rectangle<float> (area.getX(), y - 1.25f, area.getWidth(), 2.5f));
+        g.fillRect (juce::Rectangle<float> (area.getX() - 1.0f, y - 2.5f, 3.0f, 5.0f));
+        g.fillRect (juce::Rectangle<float> (area.getRight() - 2.0f, y - 2.5f, 3.0f, 5.0f));
+    }
+
     g.setColour (juce::Colour (0xff888888));
     g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
     g.drawText (label, labelArea, juce::Justification::centred);
@@ -61,8 +71,8 @@ void VUMeter::paint (juce::Graphics& g)
 
     auto inner = b.reduced (4.0f);
     auto left = inner.removeFromLeft (inner.getWidth() * 0.5f);
-    drawBar (g, left.reduced (4.0f, 2.0f),  levL, pkL, "L");
-    drawBar (g, inner.reduced (4.0f, 2.0f), levR, pkR, "R");
+    drawBar (g, left.reduced (4.0f, 2.0f),  levL, pkL, recL, showRec_, "L");
+    drawBar (g, inner.reduced (4.0f, 2.0f), levR, pkR, recR, showRec_, "R");
 }
 
 //==============================================================================
@@ -252,6 +262,15 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
     skinAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         proc.apvts, "meterSkin", skinBox);
 
+    compactButton.setClickingTogglesState (true);
+    compactButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
+    compactButton.setTooltip ("Bar view: show 2 bars (Live L/R) with the recorded take as amber ghost markers, "
+                              "instead of separate Recorded and Live meters.");
+    compactButton.onClick = [this] { applySkin(); };
+    addAndMakeVisible (compactButton);
+    compactAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        proc.apvts, "compactBars", compactButton);
+
     autoButton.setClickingTogglesState (true);
     autoButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
     autoButton.setTooltip ("Auto-record: automatically records every time the transport plays. "
@@ -385,13 +404,17 @@ TimelineVUAudioProcessorEditor::~TimelineVUAudioProcessorEditor() { stopTimer();
 void TimelineVUAudioProcessorEditor::applySkin()
 {
     analogSkin = (int) *proc.apvts.getRawParameterValue ("meterSkin") == 1;
+    const bool compact = *proc.apvts.getRawParameterValue ("compactBars") > 0.5f;
 
-    recordedMeter.setVisible (! analogSkin);
+    recordedMeter.setVisible (! analogSkin && ! compact);
     liveMeter    .setVisible (! analogSkin);
-    recordedLabel.setVisible (! analogSkin);
+    recordedLabel.setVisible (! analogSkin && ! compact);
     liveLabel    .setVisible (! analogSkin);
+    liveLabel.setText (compact ? "LIVE   (amber = recorded)" : "LIVE", juce::dontSendNotification);
     dialL.setVisible (analogSkin);
     dialR.setVisible (analogSkin);
+
+    compactButton.setEnabled (! analogSkin);
 
     setSize (analogSkin ? 520 : 440, analogSkin ? 632 : 672);
     resized();
@@ -447,7 +470,7 @@ void TimelineVUAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (juce::Colour (0xffe8e8e8));
     g.setFont (juce::FontOptions (16.0f, juce::Font::bold));
-    g.drawText ("DEJA VU", top, juce::Justification::centredLeft);
+    g.drawText ("DEJA VU METER", top, juce::Justification::centredLeft);
 
     g.setColour (juce::Colour (0xff6a6a6a));
     g.setFont (juce::FontOptions (11.0f));
@@ -480,6 +503,12 @@ void TimelineVUAudioProcessorEditor::resized()
         auto lArea = r.removeFromLeft (r.getWidth() / 2);
         dialL.setBounds (lArea.reduced (6, 2));
         dialR.setBounds (r.reduced (6, 2));
+    }
+    else if (*proc.apvts.getRawParameterValue ("compactBars") > 0.5f)
+    {
+        auto labels = r.removeFromBottom (20);
+        liveLabel.setBounds (labels.reduced (4, 0));
+        liveMeter.setBounds (r.reduced (8, 4));
     }
     else
     {
@@ -525,6 +554,7 @@ void TimelineVUAudioProcessorEditor::resized()
     auto monRow = controls.removeFromTop (26);
     monRow.removeFromLeft (46);
     monitorButton.setBounds (monRow.removeFromLeft (170));
+    compactButton.setBounds (monRow.removeFromRight (84));
 
     controls.removeFromTop (8);
     targetLabel.setBounds (controls.removeFromTop (24));
@@ -552,7 +582,9 @@ void TimelineVUAudioProcessorEditor::timerCallback()
     upd (proc.recordedL.load(), recDispL,  recPkL);
     upd (proc.recordedR.load(), recDispR,  recPkR);
 
-    liveMeter.setValues     (liveDispL, livePkL, liveDispR, livePkR);
+    const bool compact = *proc.apvts.getRawParameterValue ("compactBars") > 0.5f;
+    liveMeter.setValues     (liveDispL, livePkL, liveDispR, livePkR,
+                             recDispL, recDispR, compact && proc.hasRecording.load());
     recordedMeter.setValues (recDispL,  recPkL,  recDispR,  recPkR);
 
     const bool isVu = (int) *proc.apvts.getRawParameterValue ("meterMode") == 0;
