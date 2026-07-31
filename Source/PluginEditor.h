@@ -84,6 +84,8 @@ private:
 
     TimelineVUAudioProcessor& proc;
 
+    juce::TooltipWindow tooltipWindow { this };
+
     // Meters.
     VUMeter       recordedMeter { true };
     VUMeter       liveMeter     { false };
