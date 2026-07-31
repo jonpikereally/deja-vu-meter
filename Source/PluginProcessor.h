@@ -97,6 +97,7 @@ public:
     void selectRecording (int index);
     void deleteActiveRecording();
     void deleteAllRecordings();
+    void renameActiveRecording (const juce::String& newName);
 
     int          getNumRecordings() const { return (int) history.size(); }
     int          getActiveRecording() const { return activeIndex; }

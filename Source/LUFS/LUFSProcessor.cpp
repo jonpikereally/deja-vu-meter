@@ -294,6 +294,19 @@ void DejaVULUFSAudioProcessor::deleteActiveRecording()
 }
 void DejaVULUFSAudioProcessor::deleteAllRecordings() { history.clear(); activeIndex = -1; fillPlaybackFromActive(); }
 
+void DejaVULUFSAudioProcessor::renameActiveRecording (const juce::String& newName)
+{
+    if (! juce::isPositiveAndBelow (activeIndex, (int) history.size())) return;
+    const auto trimmed = newName.trim();
+    if (trimmed.isEmpty()) return;
+    auto existsOther = [this] (const juce::String& n)
+    { for (int i = 0; i < (int) history.size(); ++i) if (i != activeIndex && history[(size_t) i].name == n) return true; return false; };
+    juce::String candidate = trimmed;
+    if (existsOther (candidate))
+        for (int k = 2; ; ++k) { auto c = trimmed + " (" + juce::String (k) + ")"; if (! existsOther (c)) { candidate = c; break; } }
+    history[(size_t) activeIndex].name = candidate;
+}
+
 bool DejaVULUFSAudioProcessor::nameExists (const juce::String& n) const
 {
     for (const auto& r : history) if (r.name == n) return true;
