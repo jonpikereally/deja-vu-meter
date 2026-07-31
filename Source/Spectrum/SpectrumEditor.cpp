@@ -13,9 +13,10 @@ void SpectrumCurve::paint (juce::Graphics& g)
     const float w = in.getWidth(), h = in.getHeight(), left = in.getX(), bottom = in.getBottom();
 
     g.setFont (juce::FontOptions (9.0f));
-    for (int dB : { 0, -20, -40, -60, -80 })
+    for (int dB : { 0, -3, -6, -12, -24, -48, -72 })
     {
-        const float y = bottom - ((float) dB + 90.0f) / 90.0f * h;
+        if ((float) dB < minDb_) continue;
+        const float y = bottom - (((float) dB - minDb_) / (0.0f - minDb_)) * h;
         g.setColour (juce::Colour (0x18ffffff));
         g.drawHorizontalLine ((int) y, left, in.getRight());
         g.setColour (juce::Colour (0xff555555));
@@ -46,7 +47,7 @@ void SpectrumCurve::paint (juce::Graphics& g)
 
     juce::Path fill;
     fill.startNewSubPath (left, bottom);
-    for (int i = 0; i < count; ++i) fill.lineTo (xOf (i), bottom - specNorm (liveN[i]) * h);
+    for (int i = 0; i < count; ++i) fill.lineTo (xOf (i), bottom - specNorm (liveN[i], minDb_) * h);
     fill.lineTo (in.getRight(), bottom);
     fill.closeSubPath();
     g.setGradientFill (juce::ColourGradient (juce::Colour (0x8836c46b), left, in.getY(),
@@ -56,7 +57,7 @@ void SpectrumCurve::paint (juce::Graphics& g)
     juce::Path live;
     for (int i = 0; i < count; ++i)
     {
-        const float x = xOf (i), y = bottom - specNorm (liveN[i]) * h;
+        const float x = xOf (i), y = bottom - specNorm (liveN[i], minDb_) * h;
         if (i == 0) live.startNewSubPath (x, y); else live.lineTo (x, y);
     }
     g.setColour (juce::Colour (0xff5fe08a));
@@ -67,7 +68,7 @@ void SpectrumCurve::paint (juce::Graphics& g)
         juce::Path ghost;
         for (int i = 0; i < count; ++i)
         {
-            const float x = xOf (i), y = bottom - specNorm (recN[i]) * h;
+            const float x = xOf (i), y = bottom - specNorm (recN[i], minDb_) * h;
             if (i == 0) ghost.startNewSubPath (x, y); else ghost.lineTo (x, y);
         }
         g.setColour (juce::Colour (0xffe0a53a));
@@ -94,9 +95,9 @@ void BandBars::paint (juce::Graphics& g)
     for (int i = 0; i < count; ++i)
     {
         const float x = in.getX() + i * bw;
-        const float nrm = specNorm (liveN[i]);
+        const float nrm = specNorm (liveN[i], minDb_);
         const float y = bottom - nrm * h;
-        const float dB = nrm * 90.0f - 90.0f;
+        const float dB = juce::Decibels::gainToDecibels (liveN[i], -120.0f);
 
         juce::Colour col = juce::Colour (0xff36c46b);
         if (dB > -3.0f)       col = juce::Colour (0xffe0483a);
@@ -106,7 +107,7 @@ void BandBars::paint (juce::Graphics& g)
 
         if (hasRec && recN != nullptr)
         {
-            const float rn = specNorm (recN[i]);
+            const float rn = specNorm (recN[i], minDb_);
             if (rn > 0.001f)
             {
                 g.setColour (juce::Colour (0xffe0a53a));
@@ -194,13 +195,64 @@ DejaVUSpectrumAudioProcessorEditor::DejaVUSpectrumAudioProcessorEditor (DejaVUSp
     takeInfoLabel.setFont (juce::FontOptions (11.0f));
     addAndMakeVisible (takeInfoLabel);
 
+    peaksLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
+    peaksLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    addAndMakeVisible (peaksLabel);
+
+    threshBox.addItem ("0 dBFS", 1);
+    threshBox.addItem ("-1 dBFS", 2);
+    threshBox.addItem ("-3 dBFS", 3);
+    threshBox.addItem ("-6 dBFS", 4);
+    addAndMakeVisible (threshBox);
+    threshAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(proc.apvts, "peakThresh", threshBox);
+
+    peaksBox.setTextWhenNoChoicesAvailable ("no peaks tagged");
+    peaksBox.onChange = [this]
+    {
+        const int id = peaksBox.getSelectedId();
+        if (id > 0)
+        {
+            const bool mon = *proc.apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
+            const auto pk = mon ? proc.getMonitorPeak (id - 1) : proc.getPeak (id - 1);
+            const int mm = (int) (pk.seconds / 60.0);
+            targetLabel.setText (
+                juce::String::formatted ("GO TO   %d.%d      %d:%05.2f      %+.1f dB",
+                                         pk.bar, pk.beat, mm, pk.seconds - mm * 60.0, pk.db),
+                juce::dontSendNotification);
+        }
+    };
+    addAndMakeVisible (peaksBox);
+
+    monitorButton.setClickingTogglesState (true);
+    monitorButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
+    monitorButton.onClick = [this] { refreshPeaksList(); };
+    addAndMakeVisible (monitorButton);
+    monitorAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(proc.apvts, "peaksMonitor", monitorButton);
+
+    zoomLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
+    zoomLabel.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    zoomLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (zoomLabel);
+    zoomSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    zoomSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 40, 18);
+    zoomSlider.setColour (juce::Slider::trackColourId, juce::Colour (0xff36a0c4));
+    zoomSlider.setTooltip ("Vertical zoom of the dB axis to magnify live-vs-recorded differences");
+    addAndMakeVisible (zoomSlider);
+    zoomAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(proc.apvts, "vZoom", zoomSlider);
+
+    targetLabel.setJustificationType (juce::Justification::centred);
+    targetLabel.setColour (juce::Label::textColourId, juce::Colour (0xffe0a53a));
+    targetLabel.setColour (juce::Label::backgroundColourId, juce::Colour (0xff23200f));
+    targetLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    addAndMakeVisible (targetLabel);
+
     positionLabel.setJustificationType (juce::Justification::centred);
     positionLabel.setColour (juce::Label::textColourId, juce::Colour (0xffb0b0b0));
     positionLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
     addAndMakeVisible (positionLabel);
 
     refreshRecordingList();
-    setSize (560, 640);
+    setSize (560, 730);
     startTimerHz (30);
 }
 
@@ -216,6 +268,8 @@ void DejaVUSpectrumAudioProcessorEditor::refreshRecordingList()
     if (active >= 0)
         takesBox.setSelectedId (active + 1, juce::dontSendNotification);
 
+    refreshPeaksList();
+
     const auto info = proc.getRecordingInfo (proc.getActiveRecording());
     if (info.valid)
     {
@@ -229,6 +283,22 @@ void DejaVUSpectrumAudioProcessorEditor::refreshRecordingList()
             juce::dontSendNotification);
     }
     else { takeInfoLabel.setText ({}, juce::dontSendNotification); }
+}
+
+void DejaVUSpectrumAudioProcessorEditor::refreshPeaksList()
+{
+    const bool mon = *proc.apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
+    peaksBox.setTextWhenNoChoicesAvailable (mon ? "monitoring\xe2\x80\xa6" : "no peaks tagged");
+    peaksBox.clear (juce::dontSendNotification);
+    const int n = mon ? proc.getNumMonitorPeaks() : proc.getNumPeaks();
+    for (int i = 0; i < n; ++i)
+    {
+        const auto pk = mon ? proc.getMonitorPeak (i) : proc.getPeak (i);
+        peaksBox.addItem (juce::String::formatted ("%d.%d    %+.1f dB", pk.bar, pk.beat, pk.db), i + 1);
+    }
+    targetLabel.setText ({}, juce::dontSendNotification);
+    lastPeaksMonitorOn = mon;
+    lastMonitorRev = proc.getMonitorRev();
 }
 
 //==============================================================================
@@ -262,7 +332,7 @@ void DejaVUSpectrumAudioProcessorEditor::resized()
     auto r = getLocalBounds().reduced (14);
     r.removeFromTop (30);
 
-    auto controls = r.removeFromBottom (170);
+    auto controls = r.removeFromBottom (250);
     r.removeFromBottom (8);
     numericLabel.setBounds (r.removeFromBottom (22));
     r.removeFromBottom (4);
@@ -292,6 +362,23 @@ void DejaVUSpectrumAudioProcessorEditor::resized()
 
     controls.removeFromTop (4);
     takeInfoLabel.setBounds (controls.removeFromTop (18));
+
+    controls.removeFromTop (6);
+    auto peaksRow = controls.removeFromTop (26);
+    peaksLabel.setBounds (peaksRow.removeFromLeft (46));
+    threshBox.setBounds (peaksRow.removeFromRight (84));
+    peaksRow.removeFromRight (6);
+    peaksBox.setBounds (peaksRow);
+
+    controls.removeFromTop (6);
+    auto mzRow = controls.removeFromTop (26);
+    monitorButton.setBounds (mzRow.removeFromLeft (150));
+    mzRow.removeFromLeft (10);
+    zoomLabel.setBounds (mzRow.removeFromLeft (40));
+    zoomSlider.setBounds (mzRow);
+
+    controls.removeFromTop (8);
+    targetLabel.setBounds (controls.removeFromTop (24));
     controls.removeFromTop (6);
     positionLabel.setBounds (controls.removeFromTop (24));
 }
@@ -299,34 +386,33 @@ void DejaVUSpectrumAudioProcessorEditor::resized()
 //==============================================================================
 void DejaVUSpectrumAudioProcessorEditor::timerCallback()
 {
+    proc.drainPeaks();
+
+    const bool monOn = *proc.apvts.getRawParameterValue ("peaksMonitor") > 0.5f;
+    if (monOn != lastPeaksMonitorOn || (monOn && proc.getMonitorRev() != lastMonitorRev))
+        refreshPeaksList();
+
     for (int b = 0; b < kBands; ++b)
     {
         centres[(size_t) b] = proc.getBandCentreHz (b);
-
-        const float lv = proc.liveBands[(size_t) b].load();
-        float& ld = liveDisp[(size_t) b];
-        ld = juce::jmax (lv, ld * 0.82f);
-
-        const float rv = proc.recBands[(size_t) b].load();
-        float& rd = recDisp[(size_t) b];
-        rd = juce::jmax (rv, rd * 0.82f);
+        float& ld = liveDisp[(size_t) b]; ld = juce::jmax (proc.liveBands[(size_t) b].load(), ld * 0.82f);
+        float& rd = recDisp[(size_t) b];  rd = juce::jmax (proc.recBands[(size_t) b].load(),  rd * 0.82f);
     }
 
+    const float zoom = *proc.apvts.getRawParameterValue ("vZoom");
+    const float minDb = -90.0f / juce::jmax (1.0f, zoom);
     const bool hasRec = proc.hasRecording.load();
-    curve.update (hasRec);
-    bars.update (hasRec);
+    curve.update (hasRec, minDb);
+    bars.update (hasRec, minDb);
 
-    // Numeric: loudest live band.
     int maxb = 0;
     for (int b = 1; b < kBands; ++b) if (liveDisp[(size_t) b] > liveDisp[(size_t) maxb]) maxb = b;
     const float f = centres[(size_t) maxb];
-    const float dB = juce::Decibels::gainToDecibels (liveDisp[(size_t) maxb], -120.0f);
     numericLabel.setText (
         "PEAK  " + (f >= 1000.0f ? juce::String (f / 1000.0f, 1) + " kHz" : juce::String ((int) f) + " Hz")
-        + juce::String::formatted ("    %.1f dB", dB),
+        + juce::String::formatted ("    %.1f dB", juce::Decibels::gainToDecibels (liveDisp[(size_t) maxb], -120.0f)),
         juce::dontSendNotification);
 
-    // Auto-mode arm flash.
     const bool autoOn = *proc.apvts.getRawParameterValue ("autoMode") > 0.5f;
     if (autoOn != lastAutoOn)
     {
