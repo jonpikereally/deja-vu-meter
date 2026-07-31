@@ -17,17 +17,22 @@ class SpectrumCurve : public juce::Component
 public:
     void setSources (const float* live, const float* rec, const float* centres, int n)
     { liveN = live; recN = rec; centres_ = centres; count = n; }
-    void update (bool hasRecording, float minDb)
-    { hasRec = hasRecording; minDb_ = minDb; repaint(); }
+    void update (bool hasRecording, float minDb, bool delta, float deltaRange)
+    { hasRec = hasRecording; minDb_ = minDb; delta_ = delta; deltaRange_ = deltaRange; repaint(); }
     void paint (juce::Graphics&) override;
 
 private:
+    void paintNormal (juce::Graphics&, juce::Rectangle<float> in);
+    void paintDelta  (juce::Graphics&, juce::Rectangle<float> in);
+
     const float* liveN { nullptr };
     const float* recN { nullptr };
     const float* centres_ { nullptr };
     int   count { 0 };
     bool  hasRec { false };
     float minDb_ { -90.0f };
+    bool  delta_ { false };
+    float deltaRange_ { 24.0f };
 };
 
 //==============================================================================
@@ -35,7 +40,8 @@ class BandBars : public juce::Component
 {
 public:
     void setSources (const float* live, const float* rec, int n) { liveN = live; recN = rec; count = n; }
-    void update (bool hasRecording, float minDb) { hasRec = hasRecording; minDb_ = minDb; repaint(); }
+    void update (bool hasRecording, float minDb, bool delta, float deltaRange)
+    { hasRec = hasRecording; minDb_ = minDb; delta_ = delta; deltaRange_ = deltaRange; repaint(); }
     void paint (juce::Graphics&) override;
 
 private:
@@ -44,6 +50,8 @@ private:
     int   count { 0 };
     bool  hasRec { false };
     float minDb_ { -90.0f };
+    bool  delta_ { false };
+    float deltaRange_ { 24.0f };
 };
 
 //==============================================================================
@@ -73,6 +81,7 @@ private:
 
     juce::TextButton autoButton  { "AUTO" };
     juce::TextButton armButton   { "ARM" };
+    juce::TextButton deltaButton { "DELTA" };
     MenuButton       clearButton { "DEL" };
 
     juce::TextEditor nameField;
@@ -98,6 +107,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> minLenAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> threshAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   monitorAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   deltaAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   zoomAtt;
 
     std::array<float, kBands> liveDisp {};

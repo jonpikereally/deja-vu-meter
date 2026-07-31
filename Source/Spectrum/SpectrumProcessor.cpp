@@ -25,6 +25,8 @@ DejaVUSpectrumAudioProcessor::createLayout()
         ParameterID { "vZoom", 1 }, "Vertical Zoom",
         juce::NormalisableRange<float> (1.0f, 4.0f, 0.01f), 1.0f));
     layout.add (std::make_unique<AudioParameterBool>(
+        ParameterID { "showDelta", 1 }, "Delta View", false));
+    layout.add (std::make_unique<AudioParameterBool>(
         ParameterID { "recordArm", 1 }, "Record Arm", false));
 
     return layout;
