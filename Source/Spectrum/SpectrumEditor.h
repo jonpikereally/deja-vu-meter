@@ -64,6 +64,8 @@ private:
     DejaVUSpectrumAudioProcessor& proc;
     static constexpr int kBands = DejaVUSpectrumAudioProcessor::kBands;
 
+    juce::TooltipWindow tooltipWindow { this };
+
     SpectrumCurve curve;
     BandBars      bars;
     juce::Label   numericLabel;

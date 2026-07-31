@@ -254,17 +254,22 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
 
     autoButton.setClickingTogglesState (true);
     autoButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
-    autoButton.setTooltip ("Auto-record every playback pass (keeps the last 5)");
+    autoButton.setTooltip ("Auto-record: automatically records every time the transport plays. "
+                           "Keeps the last 5 takes; no need to arm.");
     addAndMakeVisible (autoButton);
     autoAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         proc.apvts, "autoMode", autoButton);
 
     armButton.setClickingTogglesState (true);
     armButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xffe0483a));
+    armButton.setTooltip ("Arm record: records the incoming signal while the transport plays, "
+                          "then disarms itself when it stops.");
     addAndMakeVisible (armButton);
     armAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         proc.apvts, "recordArm", armButton);
 
+    clearButton.setButtonText ("DEL  \xE2\x96\xBE");
+    clearButton.setTooltip ("Delete takes — opens a menu (delete this take or all takes).");
     clearButton.onClick = [this]
     {
         const bool has = proc.getNumRecordings() > 0;
@@ -352,7 +357,8 @@ TimelineVUAudioProcessorEditor::TimelineVUAudioProcessorEditor (TimelineVUAudioP
 
     monitorButton.setClickingTogglesState (true);
     monitorButton.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff36a0c4));
-    monitorButton.setTooltip ("Tag peaks continuously while playing, regardless of arm/auto (last 25)");
+    monitorButton.setTooltip ("Peaks Monitor: continuously tags level peaks while the transport plays "
+                              "\xe2\x80\x94 no need to arm or auto-record. Keeps the last 25.");
     monitorButton.onClick = [this] { refreshPeaksList(); };
     addAndMakeVisible (monitorButton);
     monitorAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
@@ -603,6 +609,21 @@ void TimelineVUAudioProcessorEditor::timerCallback()
             const auto c = blinkOn ? juce::Colour (0xffe0a53a) : juce::Colour (0xff4a3a12);
             armButton.setColour (juce::TextButton::buttonColourId, c);
             armButton.setColour (juce::TextButton::buttonOnColourId, c);
+        }
+
+        // Flash the TAKE selector amber while the selected take is playing back.
+        if (proc.transportPlaying.load() && proc.hasRecording.load())
+        {
+            const auto c = blinkOn ? juce::Colour (0xffe0a53a) : juce::Colour (0xff5c4410);
+            takesBox.setColour (juce::ComboBox::textColourId, c);
+            takesBox.setColour (juce::ComboBox::outlineColourId, c);
+        }
+        else
+        {
+            takesBox.setColour (juce::ComboBox::textColourId,
+                                getLookAndFeel().findColour (juce::ComboBox::textColourId));
+            takesBox.setColour (juce::ComboBox::outlineColourId,
+                                getLookAndFeel().findColour (juce::ComboBox::outlineColourId));
         }
     }
 
