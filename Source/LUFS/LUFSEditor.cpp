@@ -148,6 +148,16 @@ DejaVULUFSAudioProcessorEditor::DejaVULUFSAudioProcessorEditor (DejaVULUFSAudioP
     addAndMakeVisible (nameLabel);
     nameField.setTextToShowWhenEmpty ("recording name", juce::Colour (0xff666666));
     nameField.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff1a1a1a));
+    nameField.setTooltip ("Name for the next recording. With a take selected, press Enter to rename it.");
+    nameField.onReturnKey = [this]
+    {
+        if (proc.getActiveRecording() >= 0)
+        {
+            proc.renameActiveRecording (nameField.getText());
+            refreshRecordingList();
+            nameField.setText (proc.getRecordingName (proc.getActiveRecording()), juce::dontSendNotification);
+        }
+    };
     addAndMakeVisible (nameField);
 
     takesLabel.setColour (juce::Label::textColourId, juce::Colour (0xff888888));
