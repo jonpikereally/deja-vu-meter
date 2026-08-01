@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(TimelineVU VERSION 0.12.2)
+project(TimelineVU VERSION 0.13.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -149,6 +149,36 @@ target_sources(DejaVUPitch PRIVATE
 target_compile_definitions(DejaVUPitch PUBLIC
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
 target_link_libraries(DejaVUPitch PRIVATE
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_lto_flags
+    juce::juce_recommended_warning_flags
+)
+
+# ---------------------------------------------------------------------------
+# Fifth plugin: Deja VU Width (stereo field: correlation / width / balance)
+# ---------------------------------------------------------------------------
+juce_add_plugin(DejaVUWidth
+    PLUGIN_MANUFACTURER_CODE Jpke
+    PLUGIN_CODE              Dvwi
+    COMPANY_NAME             "Jon Pike"
+    BUNDLE_ID                com.jonpike.dejavuwidth
+    FORMATS                  AU VST3 Standalone
+    PRODUCT_NAME             "Deja VU Width"
+    IS_SYNTH                 FALSE
+    NEEDS_MIDI_INPUT         FALSE
+    NEEDS_MIDI_OUTPUT        FALSE
+    COPY_PLUGIN_AFTER_BUILD  TRUE
+)
+juce_generate_juce_header(DejaVUWidth)
+target_sources(DejaVUWidth PRIVATE
+    Source/Width/WidthProcessor.cpp
+    Source/Width/WidthEditor.cpp
+)
+target_compile_definitions(DejaVUWidth PUBLIC
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+target_link_libraries(DejaVUWidth PRIVATE
     juce::juce_audio_utils
     juce::juce_dsp
     juce::juce_recommended_config_flags
