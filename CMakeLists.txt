@@ -5,9 +5,10 @@ project(TimelineVU VERSION 0.14.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Build for the Mac you're on (Apple Silicon). Add x86_64 here for a universal binary.
-set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "" FORCE)
+# Defaults to the host arch (Apple Silicon); override with
+# -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" for a universal (distribution) build.
+set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "")
 
 # ---------------------------------------------------------------------------
 # Fetch JUCE automatically (no manual install). First configure will git-clone
