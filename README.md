@@ -2,7 +2,7 @@
 
 **Audio metering plugins that remember.**
 
-Six free, open-source metering plugins for macOS (Audio Unit, VST3, and
+Five free, open-source metering plugins for macOS (Audio Unit, VST3, and
 Standalone). They do something ordinary meters don't: they **record what the
 meter did, locked to your DAW's timeline**, then play that back as an amber
 "ghost" against the live signal — so you can A/B a previous take against what
@@ -14,7 +14,6 @@ you're hearing now, lined up to the exact same bars.
 | **Deja VU LUFS** | Loudness — Momentary / Short-term / Integrated — plus True Peak |
 | **Deja VU Spectrum** | FFT spectrum (31 log bands), curve + band bars, delta view |
 | **Deja VU Width** | Stereo width, phase correlation, balance, goniometer |
-| **Deja VU Pitch** | Pitch / intonation — note, cents, tuning meter |
 | **Deja VU Suite** | Meter + LUFS + Spectrum + Width in one, with selectable panels |
 
 Every plugin passes audio through untouched — they only listen.
@@ -83,7 +82,6 @@ auval -v aufx Djvu Jpke   # Deja VU Meter
 auval -v aufx Dvlu Jpke   # Deja VU LUFS
 auval -v aufx Dvsp Jpke   # Deja VU Spectrum
 auval -v aufx Dvwi Jpke   # Deja VU Width
-auval -v aufx Dvpi Jpke   # Deja VU Pitch
 auval -v aufx Dvsu Jpke   # Deja VU Suite
 ```
 
@@ -125,8 +123,6 @@ AGPLv3 option does not cover closed-source commercial distribution.
 - **Deja VU LUFS** uses RBJ shelf/high-pass filters to approximate BS.1770
   K-weighting. Very close, but not a certified-exact loudness meter — don't
   deliver a broadcast master on it without checking against a certified tool.
-- **Deja VU Pitch** is monophonic; it can octave-slip on dense material. Best on
-  solo vocals and single instruments.
 - Takes are capped at 5 per plugin, peak lists at 25 entries.
 - Recorded takes are stored in the plugin state, so very long takes make for
   larger project files.

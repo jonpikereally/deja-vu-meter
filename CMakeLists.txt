@@ -128,36 +128,6 @@ target_link_libraries(DejaVULUFS PRIVATE
 )
 
 # ---------------------------------------------------------------------------
-# Fourth plugin: Deja VU Pitch (pitch / intonation, timeline recording)
-# ---------------------------------------------------------------------------
-juce_add_plugin(DejaVUPitch
-    PLUGIN_MANUFACTURER_CODE Jpke
-    PLUGIN_CODE              Dvpi
-    COMPANY_NAME             "Jon Pike"
-    BUNDLE_ID                com.jonpike.dejavupitch
-    FORMATS                  AU VST3 Standalone
-    PRODUCT_NAME             "Deja VU Pitch"
-    IS_SYNTH                 FALSE
-    NEEDS_MIDI_INPUT         FALSE
-    NEEDS_MIDI_OUTPUT        FALSE
-    COPY_PLUGIN_AFTER_BUILD  TRUE
-)
-juce_generate_juce_header(DejaVUPitch)
-target_sources(DejaVUPitch PRIVATE
-    Source/Pitch/PitchProcessor.cpp
-    Source/Pitch/PitchEditor.cpp
-)
-target_compile_definitions(DejaVUPitch PUBLIC
-    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
-target_link_libraries(DejaVUPitch PRIVATE
-    juce::juce_audio_utils
-    juce::juce_dsp
-    juce::juce_recommended_config_flags
-    juce::juce_recommended_lto_flags
-    juce::juce_recommended_warning_flags
-)
-
-# ---------------------------------------------------------------------------
 # Fifth plugin: Deja VU Width (stereo field: correlation / width / balance)
 # ---------------------------------------------------------------------------
 juce_add_plugin(DejaVUWidth
