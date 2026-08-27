@@ -1,51 +1,136 @@
 # Deja VU
 
-*(working name — see IP notes)*
+**Audio metering plugins that remember.**
 
-An Audio Unit (also VST3 / Standalone) metering plugin for Logic Pro.
+Six free, open-source metering plugins for macOS (Audio Unit, VST3, and
+Standalone). They do something ordinary meters don't: they **record what the
+meter did, locked to your DAW's timeline**, then play that back as an amber
+"ghost" against the live signal — so you can A/B a previous take against what
+you're hearing now, lined up to the exact same bars.
 
-It measures the incoming level — **VU** (300 ms RMS ballistics) or **Peak**,
-switchable — and can **record that level envelope locked to the host timeline**.
-Once recorded, it plays the take back as a **"Recorded" ghost meter** next to the
-**"Live"** meter, so you get a direct A/B of a previous pass against what's coming
-in now, lined up to the same bars.
+| Plugin | What it meters |
+|---|---|
+| **Deja VU Meter** | Stereo VU (300 ms RMS) or Peak, with bar and analog-VU faces |
+| **Deja VU LUFS** | Loudness — Momentary / Short-term / Integrated — plus True Peak |
+| **Deja VU Spectrum** | FFT spectrum (31 log bands), curve + band bars, delta view |
+| **Deja VU Width** | Stereo width, phase correlation, balance, goniometer |
+| **Deja VU Pitch** | Pitch / intonation — note, cents, tuning meter |
+| **Deja VU Suite** | Meter + LUFS + Spectrum + Width in one, with selectable panels |
 
-The recorded envelope is saved inside the plugin state, so it travels with your
-Logic project.
+Every plugin passes audio through untouched — they only listen.
 
-## How it works in Logic
+## The idea
 
-1. Insert **Deja VU** on any track or bus (it passes audio through untouched).
-2. Click **ARM RECORD**, then play the section. The take is captured at 100
-   samples/sec, indexed by the timeline, up to 60 minutes.
-3. Un-arm, rewind, and play again — the left **RECORDED** meter replays your
-   captured take (amber ghost) while the right **LIVE** meter shows the new input.
-4. **CLEAR** wipes the take. **VU / Peak** switches the metering style.
+1. Insert a Deja VU plugin on a track or bus.
+2. Hit **ARM** (or **AUTO** to capture every playback pass) and play a section.
+3. Rewind and play again — the **amber ghost** replays the recorded take against
+   the live signal, bar-aligned.
 
-## Building
+Takes are named, kept 5 deep, selectable, renameable, and saved inside the
+project, so they travel with your session.
 
-Requires the Xcode **Command Line Tools**, CMake, and git. (Full Xcode is *not*
-required — this builds and passes `auval` under Command Line Tools alone.)
+Other things they do: tag peak moments with their bar/beat position, monitor
+peaks continuously, show live-minus-recorded deltas, and (in the Suite) show any
+combination of meters at once.
+
+## Build it yourself
+
+This is source code, not a download — you build it on your own Mac. It takes one
+command and a few minutes.
+
+### What you need
+
+- **macOS 11 or newer**
+- **Xcode Command Line Tools** — full Xcode is *not* required:
+  ```bash
+  xcode-select --install
+  ```
+- **CMake** and **git**:
+  ```bash
+  brew install cmake git
+  ```
+  (If you don't have Homebrew, get it at https://brew.sh)
+
+### Build
 
 ```bash
+git clone https://github.com/YOUR-USERNAME/deja-vu-plugins.git
+cd deja-vu-plugins
 cmake -B build
 cmake --build build --parallel
 ```
 
-The first configure downloads JUCE automatically. With `COPY_PLUGIN_AFTER_BUILD`
-on, the built AU is installed to `~/Library/Audio/Plug-Ins/Components/` and the
-VST3 to `~/Library/Audio/Plug-Ins/VST3/`. Restart Logic (or rescan) to see it.
+The first configure downloads JUCE automatically (a few minutes). When it
+finishes, the plugins are **installed for you** into:
 
-### Validate the AU
+- `~/Library/Audio/Plug-Ins/Components/` (Audio Units)
+- `~/Library/Audio/Plug-Ins/VST3/` (VST3)
+
+Quit and reopen Logic (or your DAW) so it rescans. They appear under
+**Audio FX → Jon Pike**.
+
+### Building with Claude Code
+
+If you'd rather not touch a terminal: open this folder with
+[Claude Code](https://claude.com/claude-code) and say **"build and install these
+plugins."** The repo includes a `CLAUDE.md` that tells Claude how the project is
+laid out, how to build it, and how to verify the result.
+
+### Optional: check the Audio Units are valid
 
 ```bash
-auval -v aufx Djvu Jpke
+auval -v aufx Djvu Jpke   # Deja VU Meter
+auval -v aufx Dvlu Jpke   # Deja VU LUFS
+auval -v aufx Dvsp Jpke   # Deja VU Spectrum
+auval -v aufx Dvwi Jpke   # Deja VU Width
+auval -v aufx Dvpi Jpke   # Deja VU Pitch
+auval -v aufx Dvsu Jpke   # Deja VU Suite
 ```
 
-## Notes / roadmap
+### Universal (Intel + Apple Silicon) build
 
-- Metering is the mono sum of channels (one value per meter). Per-channel stereo
-  metering is a natural next step.
-- The recorded metric follows the current VU/Peak mode at record time.
-- Timeline indexing uses the host's sample position, so the take re-aligns to the
-  exact same bars regardless of tempo playback.
+The default build targets your own Mac. For a binary that runs on both:
+
+```bash
+cmake -B build-dist -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+cmake --build build-dist --parallel
+```
+
+## Why you build it instead of downloading it
+
+Two reasons, and they're both honest ones:
+
+1. **Licensing.** These plugins use [JUCE](https://juce.com), whose modules are
+   dual-licensed AGPLv3 / commercial. Releasing this freely under the AGPLv3
+   keeps everything above board — and the AGPLv3 is why the source is here for
+   you to read, change, and share.
+2. **Code signing.** Distributing ready-made macOS plugins without warnings
+   requires a paid Apple Developer ID and notarization. Building on your own
+   machine sidesteps that entirely — no "unidentified developer" prompts,
+   because you compiled it.
+
+## License
+
+**GNU Affero General Public License v3.0** — see [LICENSE](LICENSE).
+
+You are free to use, study, modify, and share this. If you distribute a modified
+version, it must also be AGPLv3 and you must make your source available.
+
+This project uses the JUCE framework under its AGPLv3 option. **If you want to
+sell a plugin built from this code, you need a commercial JUCE licence** — the
+AGPLv3 option does not cover closed-source commercial distribution.
+
+## Notes and caveats
+
+- **Deja VU LUFS** uses RBJ shelf/high-pass filters to approximate BS.1770
+  K-weighting. Very close, but not a certified-exact loudness meter — don't
+  deliver a broadcast master on it without checking against a certified tool.
+- **Deja VU Pitch** is monophonic; it can octave-slip on dense material. Best on
+  solo vocals and single instruments.
+- Takes are capped at 5 per plugin, peak lists at 25 entries.
+- Recorded takes are stored in the plugin state, so very long takes make for
+  larger project files.
+
+---
+
+Built by Jon Pike with [Claude Code](https://claude.com/claude-code).
