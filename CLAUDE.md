@@ -5,7 +5,7 @@ reference; this file is what's worth knowing before touching anything.
 
 ## What this is
 
-**Deja VU Meter** — the project name for six macOS audio metering plugins
+**Deja VU Meter** — the project name for five macOS audio metering plugins
 (AU / VST3 / Standalone), one of which is *also* called Deja VU Meter. Built
 with [JUCE](https://juce.com) and CMake. They pass audio through untouched and
 record what the meter did, locked to the host timeline, so a previous take can be
@@ -35,7 +35,6 @@ auval -v aufx Djvu Jpke   # Meter
 auval -v aufx Dvlu Jpke   # LUFS
 auval -v aufx Dvsp Jpke   # Spectrum
 auval -v aufx Dvwi Jpke   # Width
-auval -v aufx Dvpi Jpke   # Pitch
 auval -v aufx Dvsu Jpke   # Suite
 ```
 
@@ -50,7 +49,6 @@ pass. Confirm the installed binary actually changed before trusting it.
 | `TimelineVU` | `Source/*.cpp` | `Djvu` | Deja VU Meter |
 | `DejaVUSpectrum` | `Source/Spectrum/` | `Dvsp` | Deja VU Spectrum |
 | `DejaVULUFS` | `Source/LUFS/` | `Dvlu` | Deja VU LUFS |
-| `DejaVUPitch` | `Source/Pitch/` | `Dvpi` | Deja VU Pitch |
 | `DejaVUWidth` | `Source/Width/` | `Dvwi` | Deja VU Width |
 | `DejaVUSuite` | `Source/Suite/` | `Dvsu` | Deja VU Suite |
 
