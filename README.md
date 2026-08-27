@@ -1,4 +1,4 @@
-# Deja VU
+# Deja VU Meter
 
 **Audio metering plugins that remember.**
 
@@ -54,8 +54,8 @@ command and a few minutes.
 ### Build
 
 ```bash
-git clone https://github.com/jonpikereally/deja-vu-plugins.git
-cd deja-vu-plugins
+git clone https://github.com/jonpikereally/deja-vu-meter.git
+cd deja-vu-meter
 cmake -B build
 cmake --build build --parallel
 ```
