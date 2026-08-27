@@ -5,7 +5,8 @@ reference; this file is what's worth knowing before touching anything.
 
 ## What this is
 
-**Deja VU** — six macOS audio metering plugins (AU / VST3 / Standalone) built
+**Deja VU Meter** — the project name for six macOS audio metering plugins
+(AU / VST3 / Standalone), one of which is *also* called Deja VU Meter. Built
 with [JUCE](https://juce.com) and CMake. They pass audio through untouched and
 record what the meter did, locked to the host timeline, so a previous take can be
 replayed as an amber "ghost" against the live signal.
