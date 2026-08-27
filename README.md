@@ -54,7 +54,7 @@ command and a few minutes.
 ### Build
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/deja-vu-plugins.git
+git clone https://github.com/jonpikereally/deja-vu-plugins.git
 cd deja-vu-plugins
 cmake -B build
 cmake --build build --parallel
