@@ -120,9 +120,10 @@ AGPLv3 option does not cover closed-source commercial distribution.
 
 ## Also in this repo
 
-[`iPadOS/`](iPadOS/) holds **Big Fader**, a large iPad output fader you can park
-in Split View next to Spotify. Unrelated to the plugins: SwiftUI, no JUCE, built
-in Xcode rather than by the CMake build above. See
+[`iPadOS/`](iPadOS/) holds **Big Fader**, an iPad app you can park in Split View
+next to Spotify: two decks of local audio with a crossfader, and a large fader on
+the system output volume. Unrelated to the plugins: SwiftUI, no JUCE, built in
+Xcode rather than by the CMake build above. See
 [iPadOS/README.md](iPadOS/README.md).
 
 ## Notes and caveats

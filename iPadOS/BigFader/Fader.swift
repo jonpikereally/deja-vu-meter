@@ -1,25 +1,30 @@
 import SwiftUI
 
-/// The big vertical fader.
-struct FaderView: View {
+/// A vertical fader. Reports movement as a delta in fractions of full travel
+/// rather than an absolute value, which is what keeps the grab relative -- see
+/// the drag gesture below for why that matters on a live output.
+struct Fader: View {
 
-    @ObservedObject var volume: SystemVolume
+    let level: Float
+    var accent: Color = Theme.amber
+    var isDimmed = false
+    var showsTicks = true
+    var capHeight: CGFloat = 46
+    let onDelta: (Float) -> Void
 
     /// Y of the previous touch sample. The drag accumulates frame to frame
     /// rather than mapping the finger's absolute position onto the track: a
-    /// grab should not slam the output to wherever the finger happened to land,
-    /// and accumulating also lets the fine ratio change mid-drag without the
-    /// cap jumping.
+    /// grab should not slam a live output to wherever the finger happened to
+    /// land, and accumulating also lets the fine ratio change mid-drag without
+    /// the cap jumping.
     @State private var lastY: CGFloat?
 
-    private let capHeight: CGFloat = 46
     private let ticks: [CGFloat] = [1.0, 0.75, 0.5, 0.25, 0.0]
 
     var body: some View {
         GeometryReader { geo in
-            let height = geo.size.height
-            let travel = max(1, height - capHeight)
-            let level = CGFloat(min(max(volume.level, 0), 1))
+            let travel = max(1, geo.size.height - capHeight)
+            let value = CGFloat(min(max(level, 0), 1))
 
             ZStack(alignment: .top) {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -29,25 +34,33 @@ struct FaderView: View {
                             .strokeBorder(Theme.hairline, lineWidth: 1)
                     )
 
-                // Amber runs from the bottom of the well up to the underside of
-                // the cap, so at zero there is no lit fill left showing.
+                // Runs from the bottom of the well up to the underside of the
+                // cap, so at zero there is no lit fill left showing.
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Theme.fill)
-                        .opacity(volume.isMuted ? 0.18 : 1)
-                        .frame(height: travel * level)
+                        .fill(
+                            LinearGradient(
+                                colors: [accent.opacity(0.55), accent],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .opacity(isDimmed ? 0.18 : 1)
+                        .frame(height: travel * value)
                 }
                 .padding(6)
 
-                ForEach(ticks, id: \.self) { frac in
-                    tick(at: frac, travel: travel, width: geo.size.width)
+                if showsTicks {
+                    ForEach(ticks, id: \.self) { frac in
+                        tick(at: frac, travel: travel, width: geo.size.width)
+                    }
                 }
 
                 cap
                     .frame(height: capHeight)
                     .padding(.horizontal, 4)
-                    .offset(y: travel * (1 - level))
+                    .offset(y: travel * (1 - value))
             }
             .contentShape(Rectangle())
             .gesture(drag(travel: travel))
@@ -73,17 +86,9 @@ struct FaderView: View {
 
             // Centre line, the way a real fader cap reads its position.
             Rectangle()
-                .fill(volume.isMuted ? Theme.red : Theme.amber)
+                .fill(isDimmed ? Theme.red : accent)
                 .frame(height: 3)
                 .padding(.horizontal, 14)
-
-            VStack(spacing: 5) {
-                ForEach(0..<2, id: \.self) { _ in
-                    Capsule().fill(Color.white.opacity(0.10)).frame(height: 2)
-                }
-            }
-            .padding(.horizontal, 22)
-            .offset(y: -13)
         }
     }
 
@@ -109,8 +114,7 @@ struct FaderView: View {
                 let previous = lastY ?? value.startLocation.y
                 let dy = previous - value.location.y   // up the screen is louder
                 lastY = value.location.y
-
-                volume.nudge(by: Float(dy / travel) * Float(fineness(for: value.translation.width)))
+                onDelta(Float(dy / travel) * Float(fineness(for: value.translation.width)))
             }
             .onEnded { _ in lastY = nil }
     }

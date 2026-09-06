@@ -1,21 +1,27 @@
 # Big Fader
 
-A large vertical output fader for iPad, sized to sit in Split View next to
-Spotify. It moves the iPad's **system output volume** — the same level the
-hardware buttons and Control Center move.
+A two-deck player and output fader for iPad, sized to sit in Split View next to
+Spotify.
 
-```
-+---------------+---------------+
-|               |          75   |
-|    Spotify    |         %     |
-|               |    -2.5 dB    |
-|               |     [ | ]     |   <- fader
-|               |     | | |     |
-|               |  MUTE   DIM   |
-+---------------+---------------+
-```
+- **MIXER** — load two local tracks, crossfade between them, each with its own
+  volume fader.
+- **MASTER** — one big fader on the iPad's **system output volume**, the same
+  level the hardware buttons and Control Center move.
 
-## Why this is an app and not a widget
+The app opens in whichever mode fits the window (MASTER in a narrow Split View
+column, MIXER when there is room) until you pick one by hand.
+
+## What it can and cannot play
+
+**Your own local audio files only** — mp3, wav, aiff, m4a, flac, loaded from
+Files, iCloud Drive or on-device storage through the system document picker.
+
+It **cannot** load Spotify or Apple Music tracks. Those are DRM-protected and no
+third-party app can decode them; there is no workaround, only licensing. The
+Spotify pairing this app is built for is the *master fader* riding Spotify's
+output, not the decks playing Spotify's catalogue.
+
+## Why the master fader is an app and not a widget
 
 It cannot be a widget. There is no public API anywhere on iPadOS that sets the
 system volume from outside a foreground app:
@@ -47,7 +53,10 @@ iPad in the inventory including the 9.7 (that one caps at iPadOS 16).
 2. Select the **BigFader** target, then **Signing & Capabilities**, and set
    **Team** to your Apple ID. The bundle identifier ships as
    `com.jonpike.BigFader`; change it if Xcode reports it as taken.
-3. Plug in the iPad, pick it as the run destination, and press Run.
+3. Optional, in the same tab: **+ Capability > Background Modes > Audio**, if
+   you want the decks to keep playing when you switch away from the app. Left
+   off by default, since in Split View both apps are foreground anyway.
+4. Plug in the iPad, pick it as the run destination, and press Run.
 
 A free Apple ID signs the app for **7 days**, after which it stops launching and
 has to be re-run from Xcode. A paid Apple Developer account signs it for a year.
@@ -70,15 +79,31 @@ Open Spotify, swipe up the Dock, and drag Big Fader out to the side to make a
 Split View pair. iPadOS remembers the pairing, so afterwards it comes back
 together from the App Switcher.
 
-- **Drag anywhere on the fader.** The grab is relative, not absolute — touching
-  the track does not jump the output to wherever your finger landed.
+### Faders
+
+- **Drag anywhere on a fader.** The grab is relative, not absolute — touching
+  the track does not jump the level to wherever your finger landed.
 - **Slide sideways while dragging** for fine resolution. At roughly 90 pt out
   the fader moves at half speed, tapering to about 1/12 speed further out.
-- **MUTE** latches to silence and restores the previous level.
-- **DIM** drops roughly 12 dB for talking over the music and restores on the
-  second press. Either mode clears as soon as you move the fader or the hardware
-  buttons.
-- The **AirPlay button** under the readout switches output device.
+- **Double-tap the crossfader** to snap it back to centre.
+
+### Decks
+
+**LOAD** opens the document picker for that deck. Transport is cue-to-start and
+play/pause; drag the scrub bar to move within a track.
+
+Deck gain is `deck fader x crossfader`, so the two multiply rather than one
+overriding the other — pulling a deck fader down keeps it down wherever the
+crossfader sits. The crossfade curve is equal-power (`cos`/`sin`), so the pair
+stays at roughly constant loudness across the throw instead of dipping about
+3 dB in the middle the way a linear blend does.
+
+### Master
+
+**MUTE** latches to silence and restores the previous level. **DIM** drops
+roughly 12 dB for talking over the music and restores on the second press.
+Either mode clears as soon as you move the fader or the hardware buttons. The
+**AirPlay button** under the readout switches output device.
 
 The dB figure is `20*log10` of the system volume scalar. iPadOS does not expose
 a calibrated output level, so read it as a relative number for judging moves by
@@ -90,11 +115,14 @@ ear, not as a measurement.
   Chromecast, the desktop app — the audio is not coming out of the iPad and the
   system volume has nothing to do with it. Controlling that would need the
   Spotify Web API and an OAuth login, which is a different app.
+- **Loaded tracks do not survive a relaunch.** The document picker grants
+  access to a file for the session; persisting it across launches needs
+  security-scoped bookmarks, which are not implemented.
 - **The system volume HUD still appears** when you use the hardware buttons.
   Suppressing it needs private API.
-- **Foreground only.** It cannot change volume from the background, and no
-  background mode grants that.
-- **No haptics.** iPads have no Taptic Engine, so the fader has no detent feel.
+- **No haptics.** iPads have no Taptic Engine, so the faders have no detent feel.
+- **No beat detection, sync, EQ or cue points.** It is a crossfader and two
+  volume faders, not a DJ controller.
 
 ## Licence
 

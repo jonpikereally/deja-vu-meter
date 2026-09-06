@@ -103,10 +103,12 @@ Shared UI: `Source/MenuButton.h` (the DEL button's drawn disclosure triangle).
 
 ## The iPad app
 
-`iPadOS/` is a SwiftUI iPad app (Big Fader) that drives the system output
-volume. It shares nothing with the plugins -- no JUCE, no CMake, built in Xcode
--- so `cmake --build` and `auval` say nothing about it, and the ASCII-only rule
-above is a JUCE quirk that does not apply to Swift string literals.
+`iPadOS/` is a SwiftUI iPad app (Big Fader): two decks with a crossfader, plus
+a big fader on the system output volume. It shares nothing with the plugins --
+no JUCE, no CMake, built in Xcode -- so `cmake --build` and `auval` say nothing
+about it, and the ASCII-only rule above is a JUCE quirk that does not apply to
+Swift string literals. The Xcode project uses a synchronized folder, so new
+files under `iPadOS/BigFader/` need no project edit.
 
 The one thing to know before touching it: iPadOS has no API for setting the
 volume. The app drives the `UISlider` inside an `MPVolumeView`, and that view

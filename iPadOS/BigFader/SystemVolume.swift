@@ -33,11 +33,9 @@ final class SystemVolume: ObservableObject {
     private static let dimFactor: Float = 0.25
 
     init() {
-        // .ambient mixes with other audio and obeys the silent switch, so
-        // activating a session here does not interrupt or duck Spotify. A
-        // session has to be active for outputVolume to be meaningful.
-        try? session.setCategory(.ambient, options: [.mixWithOthers])
-        try? session.setActive(true)
+        // The session is configured in one place, since the mixer depends on
+        // it too. It has to be active for outputVolume to be meaningful.
+        AudioSession.configure()
 
         level = session.outputVolume
         isMuted = level <= Self.silence
