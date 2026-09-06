@@ -101,6 +101,18 @@ Every plugin follows the same shape:
 
 Shared UI: `Source/MenuButton.h` (the DEL button's drawn disclosure triangle).
 
+## The iPad app
+
+`iPadOS/` is a SwiftUI iPad app (Big Fader) that drives the system output
+volume. It shares nothing with the plugins -- no JUCE, no CMake, built in Xcode
+-- so `cmake --build` and `auval` say nothing about it, and the ASCII-only rule
+above is a JUCE quirk that does not apply to Swift string literals.
+
+The one thing to know before touching it: iPadOS has no API for setting the
+volume. The app drives the `UISlider` inside an `MPVolumeView`, and that view
+has to stay in the hierarchy, on screen, non-hidden and non-zero-sized or the
+writes silently stop working. `iPadOS/BigFader/VolumeBridge.swift` explains it.
+
 ## Style
 
 - Modern C++17, JUCE idioms, 4-space indent, `juce::` qualified.
