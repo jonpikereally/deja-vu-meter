@@ -53,7 +53,14 @@ struct ContentView: View {
                 switch mode {
                 case .master: masterPanel
                 case .mixer: mixerPanel
-                case .library: LibraryView(store: store)
+                case .library:
+                    LibraryView(store: store, decks: mixer.decks) { track, deck in
+                        mixer.load(
+                            Cue(track: track, edit: .whole(track.duration), setlistItemID: nil),
+                            url: store.url(for: track),
+                            into: deck
+                        )
+                    }
                 case .events: EventsView(store: store) { editingEvent = $0 }
                 }
 
