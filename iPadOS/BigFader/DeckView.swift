@@ -68,16 +68,16 @@ struct DeckView: View {
     }
 
     /// Shows at a glance that a loaded song is trimmed or faded, so an edit
-    /// made in the library is visible from the mixer.
+    /// made in the setlist is visible from the mixer.
     @ViewBuilder
     private var badges: some View {
-        if let track = deck.track, track.isTrimmed || track.hasFades {
+        if let edit = deck.edit, edit.isTrimmed(of: deck.duration) || edit.hasFades {
             HStack(spacing: 5) {
-                if track.isTrimmed {
-                    badge("TRIM " + TimeFormat.clock(track.startPoint) + "-" + TimeFormat.clock(track.endPoint))
+                if edit.isTrimmed(of: deck.duration) {
+                    badge("TRIM " + TimeFormat.clock(edit.startPoint) + "-" + TimeFormat.clock(edit.endPoint))
                 }
-                if track.hasFades {
-                    badge("IN " + TimeFormat.seconds(track.fadeIn) + " OUT " + TimeFormat.seconds(track.fadeOut))
+                if edit.hasFades {
+                    badge("IN " + TimeFormat.seconds(edit.fadeIn) + " OUT " + TimeFormat.seconds(edit.fadeOut))
                 }
                 Spacer()
             }

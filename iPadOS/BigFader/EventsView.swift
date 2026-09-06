@@ -99,7 +99,9 @@ struct EventsView: View {
 
     private func detail(for event: Event) -> String {
         let songs = store.setlist(for: event)
-        let total = songs.reduce(0) { $0 + $1.playingLength }
+        // Trimmed lengths, not full ones: the running time of a set is what
+        // will actually play.
+        let total = songs.reduce(0) { $0 + $1.item.edit.playingLength }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none

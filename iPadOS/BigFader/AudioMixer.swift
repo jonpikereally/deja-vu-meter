@@ -55,15 +55,15 @@ final class AudioMixer: ObservableObject {
 
     var decks: [Deck] { [deckA, deckB] }
 
-    func load(_ track: Track, url: URL, into deck: Deck) {
-        deck.load(track, url: url, into: engine)
+    func load(_ cue: Cue, url: URL, into deck: Deck) {
+        deck.load(cue, url: url, into: engine)
         start()
     }
 
-    /// Push a track edit out to whichever deck is holding it, so changing a
-    /// fade or an edit point takes effect without reloading.
-    func refresh(from track: Track) {
-        decks.forEach { $0.refresh(from: track) }
+    /// Push a setlist edit out to whichever deck is playing that entry, so
+    /// changing a fade or an edit point takes effect without reloading.
+    func refresh(from item: SetlistItem) {
+        decks.forEach { $0.refresh(from: item) }
     }
 
     /// Slam the crossfader to one deck, for a hard cut.

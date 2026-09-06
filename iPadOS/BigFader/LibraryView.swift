@@ -5,9 +5,9 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
 
     @ObservedObject var store: LibraryStore
-    let onEdit: (Track) -> Void
 
     @State private var isImporting = false
+    @State private var renaming: Track?
 
     var body: some View {
         VStack(spacing: 10) {
@@ -18,7 +18,7 @@ struct LibraryView: View {
             } else {
                 List {
                     ForEach(store.tracks) { track in
-                        Button { onEdit(track) } label: { row(track) }
+                        Button { renaming = track } label: { row(track) }
                             .buttonStyle(.plain)
                             .listRowBackground(Theme.panel)
                             .listRowSeparatorTint(Theme.hairline)
@@ -38,6 +38,9 @@ struct LibraryView: View {
             case .success(let urls): store.importFiles(urls)
             case .failure(let error): store.lastError = error.localizedDescription
             }
+        }
+        .sheet(item: $renaming) { track in
+            RenameTrackView(track: track) { store.rename(track, to: $0) }
         }
     }
 
@@ -92,7 +95,7 @@ struct LibraryView: View {
             Text("No tracks yet")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundColor(Theme.labelStrong)
-            Text("ADD FILES reaches local storage, iCloud Drive, Dropbox and Google Drive - anything showing in the Files app. Tracks are copied into the app, so they keep working offline.")
+            Text("ADD FILES reaches local storage, iCloud Drive, Dropbox and Google Drive - anything showing in the Files app. Tracks are copied into the app, so they keep working offline. Fades and edit points are set per setlist entry, over in EVENTS.")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundColor(Theme.label)
                 .multilineTextAlignment(.center)
@@ -108,29 +111,70 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.labelStrong)
                     .lineLimit(1)
-                Text(detail(for: track))
+                Text(TimeFormat.clock(track.duration))
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .monospacedDigit()
                     .foregroundColor(Theme.label)
-                    .lineLimit(1)
             }
             Spacer()
-            Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(track.isTrimmed || track.hasFades ? Theme.amber : Theme.label.opacity(0.5))
+            Image(systemName: "pencil")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Theme.label.opacity(0.5))
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
     }
+}
 
-    private func detail(for track: Track) -> String {
-        var parts = [TimeFormat.clock(track.duration)]
-        if track.isTrimmed {
-            parts.append("trim \(TimeFormat.clock(track.startPoint))-\(TimeFormat.clock(track.endPoint))")
+/// Titles are taken from filenames on import, which is usually close and
+/// sometimes wrong, so they can be corrected in place.
+struct RenameTrackView: View {
+
+    let track: Track
+    let onCommit: (String) -> Void
+
+    @State private var title: String
+    @Environment(\.dismiss) private var dismiss
+
+    init(track: Track, onCommit: @escaping (String) -> Void) {
+        self.track = track
+        self.onCommit = onCommit
+        _title = State(initialValue: track.title)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 14) {
+                TextField("Title", text: $title)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(Theme.labelStrong)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Theme.panel)
+                    )
+
+                Text("Titles come from the filename on import, not from the file's tags.")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(Theme.label)
+                    .multilineTextAlignment(.center)
+
+                Spacer()
+            }
+            .padding(18)
+            .background(Theme.background.ignoresSafeArea())
+            .navigationTitle("Rename")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        onCommit(title)
+                        dismiss()
+                    }
+                }
+            }
         }
-        if track.hasFades {
-            parts.append("in \(TimeFormat.seconds(track.fadeIn)) / out \(TimeFormat.seconds(track.fadeOut))")
-        }
-        return parts.joined(separator: "  -  ")
+        .preferredColorScheme(.dark)
     }
 }

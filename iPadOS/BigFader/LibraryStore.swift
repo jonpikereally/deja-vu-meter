@@ -153,11 +153,14 @@ final class LibraryStore: ObservableObject {
         tracks.first { $0.id == id }
     }
 
-    func update(_ track: Track) {
+    /// Titles come from filenames on import, which is often close but rarely
+    /// right, so they can be corrected.
+    func rename(_ track: Track, to title: String) {
         guard let index = tracks.firstIndex(where: { $0.id == track.id }) else { return }
-        var edited = track
-        edited.clampEditPoints()
-        tracks[index] = edited
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        tracks[index].title = trimmed
+        sortTracks()
         save()
     }
 
@@ -172,7 +175,7 @@ final class LibraryStore: ObservableObject {
         // track that no longer exists.
         let removedIDs = Set(doomed.map(\.id))
         for index in events.indices {
-            events[index].trackIDs.removeAll { removedIDs.contains($0) }
+            events[index].items.removeAll { removedIDs.contains($0.trackID) }
         }
         save()
     }
@@ -214,9 +217,19 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
-    /// The tracks of an event, in running order, skipping any that have gone.
-    func setlist(for event: Event) -> [Track] {
-        event.trackIDs.compactMap { id in tracks.first { $0.id == id } }
+    /// An event's running order, each entry paired with its track. Entries
+    /// whose track has gone are dropped rather than shown as holes.
+    func setlist(for event: Event) -> [SetlistEntry] {
+        event.items.compactMap { item in
+            guard let track = tracks.first(where: { $0.id == item.trackID }) else { return nil }
+            return SetlistEntry(item: item, track: track)
+        }
+    }
+
+    /// A fresh setlist entry playing the whole track, which is where every
+    /// entry starts before it is cut.
+    func newItem(for track: Track) -> SetlistItem {
+        SetlistItem(trackID: track.id, edit: .whole(track.duration))
     }
 
     // MARK: - Persistence
@@ -233,8 +246,27 @@ final class LibraryStore: ObservableObject {
             // Drop anything whose audio has gone missing -- a restore from
             // backup, or a half-finished delete.
             tracks.removeAll { !fileManager.fileExists(atPath: url(for: $0).path) }
+            repairSetlists()
         } catch {
             lastError = "Could not read the library: \(error.localizedDescription)"
+        }
+    }
+
+    /// Fill in edit points that cannot be right: entries carried over from the
+    /// older format, where the points lived on the track and the running order
+    /// stored bare IDs, plus anything whose end has drifted past its file.
+    private func repairSetlists() {
+        for eventIndex in events.indices {
+            for itemIndex in events[eventIndex].items.indices {
+                let item = events[eventIndex].items[itemIndex]
+                guard let track = tracks.first(where: { $0.id == item.trackID }) else { continue }
+
+                if item.edit.endPoint <= item.edit.startPoint + 0.01 || item.edit.endPoint > track.duration {
+                    events[eventIndex].items[itemIndex].edit = .whole(track.duration)
+                } else {
+                    events[eventIndex].items[itemIndex].edit.clamp(to: track.duration)
+                }
+            }
         }
     }
 

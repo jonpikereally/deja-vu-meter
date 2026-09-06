@@ -1,19 +1,21 @@
 import SwiftUI
 
-/// Per-song edit points: where it starts, where it ends, and how long it takes
-/// to get in and out.
+/// The edit points for one setlist entry: where it starts, where it ends, and
+/// how long it takes to get in and out.
 ///
-/// These live on the track rather than on a setlist entry, so a song trimmed
-/// once is trimmed in every event that uses it.
-struct TrackEditorView: View {
+/// These belong to the entry, not the track, so the same song can be cut one
+/// way in one event and differently in another.
+struct EditPointsView: View {
 
-    @State private var draft: Track
-    let onCommit: (Track) -> Void
+    let track: Track
+    @State private var draft: EditPoints
+    let onCommit: (EditPoints) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    init(track: Track, onCommit: @escaping (Track) -> Void) {
-        _draft = State(initialValue: track)
+    init(track: Track, edit: EditPoints, onCommit: @escaping (EditPoints) -> Void) {
+        self.track = track
+        _draft = State(initialValue: edit)
         self.onCommit = onCommit
     }
 
@@ -34,7 +36,7 @@ struct TrackEditorView: View {
                     slider(
                         "END AT",
                         value: $draft.endPoint,
-                        range: min(draft.startPoint + 0.5, draft.duration)...max(draft.duration, 1),
+                        range: min(draft.startPoint + 0.5, track.duration)...max(track.duration, 1),
                         display: TimeFormat.precise(draft.endPoint),
                         step: 0.1
                     )
@@ -56,10 +58,7 @@ struct TrackEditorView: View {
                     )
 
                     Button {
-                        draft.startPoint = 0
-                        draft.endPoint = draft.duration
-                        draft.fadeIn = 0
-                        draft.fadeOut = 0
+                        draft = .whole(track.duration)
                     } label: {
                         Text("RESET TO WHOLE TRACK")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -73,11 +72,17 @@ struct TrackEditorView: View {
                             )
                     }
                     .buttonStyle(.plain)
+
+                    Text("These edit points belong to this setlist entry. The same song in another event keeps its own.")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(Theme.label)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 12)
                 }
                 .padding(18)
             }
             .background(Theme.background.ignoresSafeArea())
-            .navigationTitle(draft.title)
+            .navigationTitle(track.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -86,17 +91,17 @@ struct TrackEditorView: View {
             }
         }
         .preferredColorScheme(.dark)
-        // Committing live rather than on Done means a deck already holding this
-        // track picks the change up while you are still dragging.
         .onChange(of: draft) { edited in
             // Clamp the draft itself rather than only what is committed, so the
             // sliders can never display a start past its own end. Settles after
             // one extra pass, since clamping is idempotent.
             var clamped = edited
-            clamped.clampEditPoints()
+            clamped.clamp(to: track.duration)
             if clamped != edited {
                 draft = clamped
             } else {
+                // Committing live rather than on Done means a deck already
+                // playing this entry picks the change up mid-drag.
                 onCommit(clamped)
             }
         }
@@ -106,9 +111,9 @@ struct TrackEditorView: View {
 
     private var summary: some View {
         HStack {
-            label("PLAYS FOR", TimeFormat.clock(draft.playingLength))
+            caption("PLAYS FOR", TimeFormat.clock(draft.playingLength))
             Spacer()
-            label("FULL LENGTH", TimeFormat.clock(draft.duration))
+            caption("FULL LENGTH", TimeFormat.clock(track.duration))
         }
         .padding(14)
         .background(
@@ -117,9 +122,9 @@ struct TrackEditorView: View {
         )
     }
 
-    private func label(_ caption: String, _ value: String) -> some View {
+    private func caption(_ text: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(caption)
+            Text(text)
                 .font(.system(size: 9, weight: .bold, design: .rounded))
                 .kerning(1)
                 .foregroundColor(Theme.label)

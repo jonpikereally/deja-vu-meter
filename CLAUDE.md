@@ -104,8 +104,8 @@ Shared UI: `Source/MenuButton.h` (the DEL button's drawn disclosure triangle).
 ## The iPad app
 
 `iPadOS/` is a SwiftUI iPad app (Big Fader): two decks with a crossfader, a
-track library with per-song fades and edit points, event setlists, plus a big
-fader on the system output volume. It shares nothing with the plugins --
+track library, event setlists whose entries each carry their own fades and edit
+points, plus a big fader on the system output volume. It shares nothing with the plugins --
 no JUCE, no CMake, built in Xcode -- so `cmake --build` and `auval` say nothing
 about it, and the ASCII-only rule above is a JUCE quirk that does not apply to
 Swift string literals. The Xcode project uses a synchronized folder, so new
