@@ -65,12 +65,45 @@ struct Track: Codable, Identifiable, Hashable {
     var duration: TimeInterval
     var addedAt: Date
 
-    init(id: UUID = UUID(), title: String, filename: String, duration: TimeInterval, addedAt: Date = Date()) {
+    /// Free-form labels for finding a song again -- "first dance", "chill",
+    /// "closer". Compared case-insensitively but stored as typed.
+    var tags: [String]
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        filename: String,
+        duration: TimeInterval,
+        addedAt: Date = Date(),
+        tags: [String] = []
+    ) {
         self.id = id
         self.title = title
         self.filename = filename
         self.duration = duration
         self.addedAt = addedAt
+        self.tags = tags
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, filename, duration, addedAt, tags
+    }
+
+    /// Written by hand only so that a library saved before tags existed still
+    /// decodes. The synthesised decoder treats a missing key as an error, which
+    /// would take the whole library down with it.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        filename = try container.decode(String.self, forKey: .filename)
+        duration = try container.decode(TimeInterval.self, forKey: .duration)
+        addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+    }
+
+    func matches(tag: String) -> Bool {
+        tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame }
     }
 }
 

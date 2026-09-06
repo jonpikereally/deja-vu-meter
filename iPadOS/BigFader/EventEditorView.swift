@@ -45,7 +45,7 @@ struct EventEditorView: View {
         .preferredColorScheme(.dark)
         .onChange(of: draft) { edited in onCommit(edited) }
         .sheet(isPresented: $isAddingSongs) {
-            TrackPickerView(tracks: store.tracks) { track in
+            TrackPickerView(tracks: store.tracks, allTags: store.allTags) { track in
                 draft.items.append(store.newItem(for: track))
             }
         }
