@@ -11,7 +11,7 @@ final class Deck: ObservableObject, Identifiable {
     let id: String
     let player = AVAudioPlayerNode()
 
-    @Published private(set) var track: Track?
+    @Published private(set) var cue: Cue?
     @Published private(set) var isPlaying = false
     @Published private(set) var loadError: String?
 
@@ -39,18 +39,21 @@ final class Deck: ObservableObject, Identifiable {
     }
 
     var isLoaded: Bool { file != nil }
-    var title: String { track?.title ?? "Empty" }
-    var duration: TimeInterval { track?.duration ?? 0 }
+    var title: String { cue?.track.title ?? "Empty" }
+    var duration: TimeInterval { cue?.track.duration ?? 0 }
+    var edit: EditPoints? { cue?.edit }
 
-    /// Where the transport is allowed to run, from the track's edit points.
-    var startPoint: TimeInterval { track?.startPoint ?? 0 }
-    var endPoint: TimeInterval { track?.endPoint ?? duration }
+    /// Where the transport is allowed to run, from the setlist entry's edit
+    /// points -- or the whole file when a track was loaded straight from the
+    /// library without a setlist behind it.
+    var startPoint: TimeInterval { cue?.edit.startPoint ?? 0 }
+    var endPoint: TimeInterval { cue?.edit.endPoint ?? duration }
 
     // MARK: - Loading
 
     /// The URL comes from the library, inside the app's own container, so
     /// there is no security scope to hold open here.
-    func load(_ track: Track, url: URL, into engine: AVAudioEngine) {
+    func load(_ cue: Cue, url: URL, into engine: AVAudioEngine) {
         do {
             let audioFile = try AVAudioFile(forReading: url)
 
@@ -58,8 +61,8 @@ final class Deck: ObservableObject, Identifiable {
 
             file = audioFile
             sampleRate = audioFile.processingFormat.sampleRate
-            self.track = track
-            position = track.startPoint
+            self.cue = cue
+            position = cue.edit.startPoint
             startFrame = 0
             loadError = nil
 
@@ -73,12 +76,14 @@ final class Deck: ObservableObject, Identifiable {
         }
     }
 
-    /// Picks up edits made in the track editor while this deck holds the track.
-    func refresh(from track: Track) {
-        guard self.track?.id == track.id else { return }
-        self.track = track
-        if position < track.startPoint || position > track.endPoint {
-            seek(to: track.startPoint)
+    /// Picks up an edit made to the setlist entry this deck is playing, so
+    /// changing a fade mid-set takes effect without reloading.
+    func refresh(from item: SetlistItem) {
+        guard var current = cue, current.setlistItemID == item.id else { return }
+        current.edit = item.edit
+        cue = current
+        if position < current.edit.startPoint || position > current.edit.endPoint {
+            seek(to: current.edit.startPoint)
         }
         updateEnvelope(at: position)
     }
@@ -86,7 +91,7 @@ final class Deck: ObservableObject, Identifiable {
     func unload() {
         stop()
         file = nil
-        track = nil
+        cue = nil
         position = 0
     }
 
@@ -187,21 +192,21 @@ final class Deck: ObservableObject, Identifiable {
     /// moves in 3% steps, which is short of a true sample-accurate ramp but
     /// well below what is audible as zipper noise on a fade of DJ length.
     private func updateEnvelope(at time: TimeInterval) {
-        guard let track else {
+        guard let edit = cue?.edit else {
             envelopeGain = 1
             return
         }
 
         var gain: Double = 1
 
-        if track.fadeIn > 0.01 {
-            let elapsed = time - track.startPoint
-            gain = min(gain, max(elapsed, 0) / track.fadeIn)
+        if edit.fadeIn > 0.01 {
+            let elapsed = time - edit.startPoint
+            gain = min(gain, max(elapsed, 0) / edit.fadeIn)
         }
 
-        if track.fadeOut > 0.01 {
-            let remaining = track.endPoint - time
-            gain = min(gain, max(remaining, 0) / track.fadeOut)
+        if edit.fadeOut > 0.01 {
+            let remaining = edit.endPoint - time
+            gain = min(gain, max(remaining, 0) / edit.fadeOut)
         }
 
         envelopeGain = Float(min(max(gain, 0), 1))

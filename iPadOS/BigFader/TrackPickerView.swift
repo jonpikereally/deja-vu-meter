@@ -1,12 +1,10 @@
 import SwiftUI
 
-/// A list of tracks to choose from. Used both for loading a deck and for
-/// adding songs to a setlist, which differ only in whether picking dismisses.
+/// Picks tracks out of the library to add to a running order. Stays open so a
+/// setlist can be built in one pass.
 struct TrackPickerView: View {
 
-    let title: String
-    let sections: [(String, [Track])]
-    var dismissesOnPick = true
+    let tracks: [Track]
     let onPick: (Track) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -14,7 +12,7 @@ struct TrackPickerView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if sections.allSatisfy({ $0.1.isEmpty }) {
+                if tracks.isEmpty {
                     VStack(spacing: 8) {
                         Text("Nothing in the library yet")
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -25,36 +23,35 @@ struct TrackPickerView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List {
-                        ForEach(sections.indices, id: \.self) { index in
-                            let section = sections[index]
-                            if !section.1.isEmpty {
-                                Section {
-                                    ForEach(section.1) { track in
-                                        Button {
-                                            onPick(track)
-                                            if dismissesOnPick { dismiss() }
-                                        } label: {
-                                            row(track)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .listRowBackground(Theme.panel)
-                                    }
-                                } header: {
-                                    Text(section.0)
-                                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                                        .kerning(1)
+                    List(tracks) { track in
+                        Button { onPick(track) } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(track.title)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundColor(Theme.labelStrong)
+                                        .lineLimit(1)
+                                    Text(TimeFormat.clock(track.duration))
+                                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                                        .monospacedDigit()
                                         .foregroundColor(Theme.label)
                                 }
+                                Spacer()
+                                Image(systemName: "plus.circle")
+                                    .foregroundColor(Theme.amber)
                             }
+                            .padding(.vertical, 3)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Theme.panel)
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                 }
             }
             .background(Theme.background.ignoresSafeArea())
-            .navigationTitle(title)
+            .navigationTitle("Add songs")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -63,25 +60,5 @@ struct TrackPickerView: View {
             }
         }
         .preferredColorScheme(.dark)
-    }
-
-    private func row(_ track: Track) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(track.title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundColor(Theme.labelStrong)
-                    .lineLimit(1)
-                Text(TimeFormat.clock(track.playingLength))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(Theme.label)
-            }
-            Spacer()
-            Image(systemName: "plus.circle")
-                .foregroundColor(Theme.amber)
-        }
-        .padding(.vertical, 3)
-        .contentShape(Rectangle())
     }
 }

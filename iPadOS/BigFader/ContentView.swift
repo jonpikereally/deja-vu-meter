@@ -22,7 +22,6 @@ struct ContentView: View {
     @State private var chosenMode: Mode?
 
     @State private var loadingDeck: Deck?
-    @State private var editingTrack: Track?
     @State private var editingEvent: Event?
 
     private var mode: Mode {
@@ -39,7 +38,7 @@ struct ContentView: View {
                 switch mode {
                 case .master: masterPanel
                 case .mixer: mixerPanel
-                case .library: LibraryView(store: store) { editingTrack = $0 }
+                case .library: LibraryView(store: store)
                 case .events: EventsView(store: store) { editingEvent = $0 }
                 }
 
@@ -66,34 +65,33 @@ struct ContentView: View {
             }
         }
         .sheet(item: $loadingDeck) { deck in
-            TrackPickerView(title: "Load deck \(deck.id)", sections: loaderSections) { track in
-                mixer.load(track, url: store.url(for: track), into: deck)
-            }
-        }
-        .sheet(item: $editingTrack) { track in
-            TrackEditorView(track: track) { edited in
-                store.update(edited)
-                // Keep a deck already holding this track in step with the edit.
-                mixer.refresh(from: edited)
+            DeckLoaderView(
+                deckID: deck.id,
+                setlistName: store.activeEvent?.name.uppercased(),
+                setlist: activeSetlist,
+                tracks: store.tracks
+            ) { cue in
+                mixer.load(cue, url: store.url(for: cue.track), into: deck)
             }
         }
         .sheet(item: $editingEvent) { event in
-            EventEditorView(event: event, store: store) { store.update($0) }
+            EventEditorView(event: event, store: store) { edited in
+                store.update(edited)
+                // Keep a deck already playing one of these entries in step with
+                // the edit, so a fade changed mid-set takes effect at once.
+                edited.items.forEach { mixer.refresh(from: $0) }
+            }
         }
     }
 
     // MARK: - Deck loading
 
-    /// The active event's running order first, then everything else, so the
-    /// next song of the night is at the top rather than buried alphabetically.
-    private var loaderSections: [(String, [Track])] {
-        guard let event = store.activeEvent else {
-            return [("ALL TRACKS", store.tracks)]
-        }
-        let setlist = store.setlist(for: event)
-        let setlistIDs = Set(setlist.map(\.id))
-        let rest = store.tracks.filter { !setlistIDs.contains($0.id) }
-        return [(event.name.uppercased(), setlist), ("ALL TRACKS", rest)]
+    /// The active event's running order, offered above the plain library so
+    /// the next song of the night -- cut the way that event wants it -- is at
+    /// the top rather than buried alphabetically.
+    private var activeSetlist: [SetlistEntry] {
+        guard let event = store.activeEvent else { return [] }
+        return store.setlist(for: event)
     }
 
     // MARK: - Layouts

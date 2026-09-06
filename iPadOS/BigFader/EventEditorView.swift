@@ -1,7 +1,16 @@
 import SwiftUI
 
-/// One event: its name, its date, and its running order.
+/// One event: its name, its date, and its running order -- with each entry's
+/// own edit points.
 struct EventEditorView: View {
+
+    /// A setlist entry opened for editing. Identified by the entry's id, so the
+    /// same song twice in one running order edits as two separate things.
+    private struct EditTarget: Identifiable {
+        let id: UUID
+        let track: Track
+        let edit: EditPoints
+    }
 
     @State private var draft: Event
     @ObservedObject private var store: LibraryStore
@@ -9,6 +18,7 @@ struct EventEditorView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var isAddingSongs = false
+    @State private var editTarget: EditTarget?
 
     init(event: Event, store: LibraryStore, onCommit: @escaping (Event) -> Void) {
         _draft = State(initialValue: event)
@@ -35,12 +45,14 @@ struct EventEditorView: View {
         .preferredColorScheme(.dark)
         .onChange(of: draft) { edited in onCommit(edited) }
         .sheet(isPresented: $isAddingSongs) {
-            TrackPickerView(
-                title: "Add songs",
-                sections: [("LIBRARY", store.tracks)],
-                dismissesOnPick: false
-            ) { track in
-                draft.trackIDs.append(track.id)
+            TrackPickerView(tracks: store.tracks) { track in
+                draft.items.append(store.newItem(for: track))
+            }
+        }
+        .sheet(item: $editTarget) { target in
+            EditPointsView(track: target.track, edit: target.edit) { edited in
+                guard let index = draft.items.firstIndex(where: { $0.id == target.id }) else { return }
+                draft.items[index].edit = edited
             }
         }
     }
@@ -115,39 +127,12 @@ struct EventEditorView: View {
 
     private var setlist: some View {
         List {
-            // Indexed rather than keyed by track ID, so the same song can
-            // appear twice in a running order without the rows colliding.
-            ForEach(Array(draft.trackIDs.enumerated()), id: \.offset) { index, trackID in
-                HStack(spacing: 10) {
-                    Text("\(index + 1)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(Theme.amber)
-                        .frame(width: 22, alignment: .trailing)
-
-                    if let track = store.track(id: trackID) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(Theme.labelStrong)
-                                .lineLimit(1)
-                            Text(summary(for: track))
-                                .font(.system(size: 10, weight: .medium, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundColor(Theme.label)
-                        }
-                    } else {
-                        Text("Missing track")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(Theme.red)
-                    }
-
-                    Spacer()
-                }
-                .listRowBackground(Theme.panel)
+            ForEach(Array(draft.items.enumerated()), id: \.element.id) { index, item in
+                row(index: index, item: item)
+                    .listRowBackground(Theme.panel)
             }
-            .onDelete { draft.trackIDs.remove(atOffsets: $0) }
-            .onMove { draft.trackIDs.move(fromOffsets: $0, toOffset: $1) }
+            .onDelete { draft.items.remove(atOffsets: $0) }
+            .onMove { draft.items.move(fromOffsets: $0, toOffset: $1) }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -156,17 +141,63 @@ struct EventEditorView: View {
         .environment(\.editMode, .constant(.active))
     }
 
-    private var runningTime: String {
-        let total = draft.trackIDs
-            .compactMap { store.track(id: $0) }
-            .reduce(0) { $0 + $1.playingLength }
-        return "\(draft.trackIDs.count) songs  -  \(TimeFormat.clock(total))"
+    @ViewBuilder
+    private func row(index: Int, item: SetlistItem) -> some View {
+        if let track = store.track(id: item.trackID) {
+            Button {
+                editTarget = EditTarget(id: item.id, track: track, edit: item.edit)
+            } label: {
+                HStack(spacing: 10) {
+                    Text("\(index + 1)")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(Theme.amber)
+                        .frame(width: 22, alignment: .trailing)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(track.title)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(Theme.labelStrong)
+                            .lineLimit(1)
+                        Text(summary(for: item, track: track))
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(Theme.label)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(
+                            item.edit.isTrimmed(of: track.duration) || item.edit.hasFades
+                                ? Theme.amber
+                                : Theme.label.opacity(0.5)
+                        )
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } else {
+            Text("Missing track")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.red)
+        }
     }
 
-    private func summary(for track: Track) -> String {
-        var parts = [TimeFormat.clock(track.playingLength)]
-        if track.hasFades {
-            parts.append("in \(TimeFormat.seconds(track.fadeIn)) / out \(TimeFormat.seconds(track.fadeOut))")
+    private var runningTime: String {
+        let total = draft.items.reduce(0) { $0 + $1.edit.playingLength }
+        return "\(draft.items.count) songs  -  \(TimeFormat.clock(total))"
+    }
+
+    private func summary(for item: SetlistItem, track: Track) -> String {
+        var parts = [TimeFormat.clock(item.edit.playingLength)]
+        if item.edit.isTrimmed(of: track.duration) {
+            parts.append("\(TimeFormat.clock(item.edit.startPoint))-\(TimeFormat.clock(item.edit.endPoint))")
+        }
+        if item.edit.hasFades {
+            parts.append("in \(TimeFormat.seconds(item.edit.fadeIn)) / out \(TimeFormat.seconds(item.edit.fadeOut))")
         }
         return parts.joined(separator: "  -  ")
     }

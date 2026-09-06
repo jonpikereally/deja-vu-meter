@@ -6,8 +6,8 @@ Spotify.
 - **MASTER** — one big fader on the iPad's **system output volume**, the same
   level the hardware buttons and Control Center move.
 - **MIXER** — two decks with a crossfader, each with its own volume fader.
-- **LIBRARY** — tracks imported into the app, with per-song edit points.
-- **EVENTS** — a name, a date and a running order picked from the library.
+- **LIBRARY** — the tracks imported into the app.
+- **EVENTS** — running orders, with per-song fades and edit points.
 
 The app opens in whichever mode fits the window (MASTER in a narrow Split View
 column, MIXER when there is room) until you pick one by hand.
@@ -33,20 +33,22 @@ import, so a bad file is rejected then rather than at the moment you need it.
 
 ## Events and setlists
 
-An event is a name, a date and an ordered list of songs. Drag to reorder, swipe
-to remove, and the header totals the running time from the songs' *trimmed*
-lengths rather than their full ones.
+An event is a name, a date and an ordered list of songs, each with its own edit
+points. Drag to reorder, swipe to remove, tap a row to cut it. The header totals
+the running time from the entries' *trimmed* lengths rather than their full ones.
 
 Marking an event **ACTIVE** puts its running order at the top of the deck
 loader, so the next song of the night is one tap away instead of buried in an
 alphabetical library.
 
-Setlists hold references, not copies. The same song can appear twice in one
-running order, and editing its fades updates every event that uses it.
-
 ## Per-song edit points
 
-Tap any track in the library to set four things:
+**Fades and edit points belong to the setlist entry, not to the track.** The
+same song can open a ceremony trimmed to its first verse and close a dance floor
+running full length, in two different events, with no conflict — and twice in
+one running order, cut differently each time.
+
+Tap any row in an event's setlist to set four things:
 
 | | |
 |---|---|
@@ -57,11 +59,10 @@ Tap any track in the library to set four things:
 
 The four are clamped against each other, so start can never pass end and two
 fades can never overlap (each is capped at half the trimmed length). Edits
-commit live: a deck already holding that track picks them up while you drag.
+commit live: a deck already playing that entry picks them up while you drag.
 
-These live on the **track**, not on a setlist entry — trim a song once and it is
-trimmed everywhere. Per-event overrides of the same song would be a small
-follow-up if you ever want them.
+A track loaded straight from the library rather than from a setlist plays whole.
+Cutting it means putting it in an event first.
 
 `AVAudioPlayerNode` has no gain-ramp API, so fades are applied by writing volume
 from the transport timer at 30 Hz. A one-second fade moves in 3% steps — short
@@ -143,7 +144,9 @@ together from the App Switcher.
 
 ### Decks
 
-**LOAD** opens the library for that deck, active event's setlist first. Transport is cue-to-start and
+**LOAD** opens the library for that deck. The active event's setlist comes
+first, each entry cut the way that event wants it; below it, every track in the
+library, playable whole. Transport is cue-to-start and
 play/pause; drag the scrub bar to move within a track.
 
 Deck gain is `deck fader x crossfader`, so the two multiply rather than one
@@ -170,7 +173,8 @@ ear, not as a measurement.
   system volume has nothing to do with it. Controlling that would need the
   Spotify Web API and an OAuth login, which is a different app.
 - **Track titles come from filenames**, not from tags. Files named
-  "Artist - Title" read correctly; ones named "track07" do not.
+  "Artist - Title" read correctly; ones named "track07" do not. Tap a library
+  row to rename.
 - **No waveform display.** Edit points are set on sliders against a clock, not
   against a picture of the audio.
 - **The system volume HUD still appears** when you use the hardware buttons.
