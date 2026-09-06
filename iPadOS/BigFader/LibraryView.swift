@@ -6,6 +6,11 @@ struct LibraryView: View {
 
     @ObservedObject var store: LibraryStore
 
+    /// The decks a track can be sent straight to, and how to send it. Kept as
+    /// a closure so the library needs to know nothing about the engine.
+    let decks: [Deck]
+    let onSendToDeck: (Track, Deck) -> Void
+
     @State private var isImporting = false
     @State private var editing: Track?
     @State private var filter: Set<String> = []
@@ -24,10 +29,18 @@ struct LibraryView: View {
             } else {
                 List {
                     ForEach(visible) { track in
-                        Button { editing = track } label: { row(track) }
-                            .buttonStyle(.plain)
-                            .listRowBackground(Theme.panel)
-                            .listRowSeparatorTint(Theme.hairline)
+                        HStack(spacing: 8) {
+                            // Siblings rather than nested buttons: a button
+                            // inside a button swallows the inner tap.
+                            Button { editing = track } label: { row(track) }
+                                .buttonStyle(.plain)
+
+                            ForEach(decks) { deck in
+                                DeckSendButton(track: track, deck: deck, send: onSendToDeck)
+                            }
+                        }
+                        .listRowBackground(Theme.panel)
+                        .listRowSeparatorTint(Theme.hairline)
                     }
                     .onDelete(perform: delete)
                 }
@@ -102,7 +115,7 @@ struct LibraryView: View {
         let count = filter.isEmpty ? store.tracks.count : visible.count
         let megabytes = Double(store.storageUsed) / 1_000_000
         let scope = filter.isEmpty ? "" : " of \(store.tracks.count)"
-        return "\(count)\(scope) track\(count == 1 ? "" : "s") - \(String(format: "%.0f", megabytes)) MB in the app"
+        return "\(count)\(scope) track\(count == 1 ? "" : "s") - \(String(format: "%.0f", megabytes)) MB - A / B loads a deck"
     }
 
     private var emptyLibrary: some View {
@@ -173,5 +186,44 @@ struct LibraryView: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+    }
+}
+
+/// Sends a track straight to one deck, played whole. Edit points belong to a
+/// setlist entry, so a track sent from here has none -- that is the difference
+/// between loading a song and loading a song out of a running order.
+///
+/// Its own view, observing the deck, so the "already on this deck" highlight
+/// updates when the deck does instead of going stale until something else
+/// happens to redraw the list.
+struct DeckSendButton: View {
+
+    let track: Track
+    @ObservedObject var deck: Deck
+    let send: (Track, Deck) -> Void
+
+    private var holding: Bool { deck.cue?.track.id == track.id }
+
+    var body: some View {
+        Button {
+            send(track, deck)
+        } label: {
+            Text(deck.id)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(holding ? .black : Theme.labelStrong)
+                .frame(width: 38, height: 38)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(holding ? Theme.amber : Theme.trackWell)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(Theme.hairline, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!track.isResolved)
+        .opacity(track.isResolved ? 1 : 0.28)
+        .accessibilityLabel("Load \(track.title) onto deck \(deck.id)")
     }
 }
