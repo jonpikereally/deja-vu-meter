@@ -100,6 +100,27 @@ running order is under your hands straight away.
 Live mode needs an active event. Without one the toggle says so rather than
 doing nothing quietly.
 
+## Sharing sets
+
+**EXPORT** in the EVENTS tab writes a `.bigfader.json` file — every song, its
+tags, every running order and every edit point. The share icon inside an event
+exports just that event and the songs it uses. **IMPORT** reads one back.
+
+The file carries **no audio**. A four-hour set is gigabytes. Instead every track
+records the SHA-256 of its audio, which is the same on every device, so a set
+opened somewhere that already holds the files matches them up. Somewhere that
+does not still gets the whole running order: the songs come in marked *add the
+audio*, and importing the file later relinks it by hash without disturbing the
+setlist already pointing at it.
+
+An import never deletes anything. Songs already here are matched and left alone;
+events are replaced by id or appended.
+
+This is the shared half of a hybrid: a browser app on a laptop is a better place
+to build a running order and set edit points against a big waveform, and the
+iPad is a better place to play it. [SET-FORMAT.md](SET-FORMAT.md) is the full
+spec, written so something other than this app can be built against it.
+
 ## Waveforms
 
 Overviews are generated on import, in the same background pass as the copy,
@@ -259,6 +280,8 @@ ear, not as a measurement.
   Chromecast, the desktop app — the audio is not coming out of the iPad and the
   system volume has nothing to do with it. Controlling that would need the
   Spotify Web API and an OAuth login, which is a different app.
+- **A shared set does not bring its audio.** That is the design, not an
+  omission, but it means moving a library to a new iPad is still a file copy.
 - **Track titles come from filenames**, not from tags. Files named
   "Artist - Title" read correctly; ones named "track07" do not. Tap a library
   row to rename.
