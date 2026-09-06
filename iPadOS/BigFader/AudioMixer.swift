@@ -13,6 +13,28 @@ final class AudioMixer: ObservableObject {
     @Published var crossfade: Float = 0.5 { didSet { applyCrossfade() } }
     @Published private(set) var engineError: String?
 
+    /// When on, a deck that finishes or is ejected reloads itself with the next
+    /// song in the running order. It loads and cues; it does not start playing,
+    /// because bringing the next song in is the crossfader's job.
+    @Published var isLiveMode = false {
+        didSet {
+            guard isLiveMode else {
+                liveNote = nil
+                return
+            }
+            fillEmptyDecks()
+        }
+    }
+
+    /// What live mode last did, or why it could not.
+    @Published private(set) var liveNote: String?
+
+    /// Supplied by the view layer, which owns the library. Given the setlist
+    /// entries already consumed and the tracks currently on a deck, it returns
+    /// the next thing to play. The mixer deliberately knows nothing about
+    /// events or files.
+    var nextCue: ((_ consumedItemIDs: Set<UUID>, _ busyTrackIDs: Set<UUID>) -> (cue: Cue, url: URL)?)?
+
     private var timer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -30,6 +52,9 @@ final class AudioMixer: ObservableObject {
 
         applyCrossfade()
         start()
+
+        deckA.onFinished = { [weak self] deck in self?.finished(deck) }
+        deckB.onFinished = { [weak self] deck in self?.finished(deck) }
 
         // The engine stops and loses its connections whenever the route changes
         // -- headphones in, AirPlay out. Without this the decks go silent and
@@ -64,6 +89,62 @@ final class AudioMixer: ObservableObject {
     /// changing a fade or an edit point takes effect without reloading.
     func refresh(from item: SetlistItem) {
         decks.forEach { $0.refresh(from: item) }
+    }
+
+    // MARK: - Live mode
+
+    /// Take the current song off a deck. In live mode the next one takes its
+    /// place; otherwise the deck is just left empty.
+    func eject(_ deck: Deck) {
+        if isLiveMode {
+            advance(deck)
+        } else {
+            deck.unload()
+        }
+    }
+
+    private func finished(_ deck: Deck) {
+        guard isLiveMode else { return }
+        advance(deck)
+    }
+
+    /// Replace what is on `deck` with the next song in the running order that
+    /// is not already on a deck.
+    private func advance(_ deck: Deck) {
+        let other = (deck === deckA) ? deckB : deckA
+
+        // Captured before unloading: what this deck just played still counts as
+        // consumed, or live mode would hand it straight back.
+        var consumed: Set<UUID> = []
+        var busyTracks: Set<UUID> = []
+
+        if let id = deck.cue?.setlistItemID { consumed.insert(id) }
+        if let cue = other.cue {
+            if let id = cue.setlistItemID { consumed.insert(id) }
+            // Excluded by track as well as by entry, so a song listed twice
+            // cannot end up playing on both decks at once.
+            busyTracks.insert(cue.track.id)
+        }
+
+        deck.unload()
+
+        guard let provider = nextCue else { return }
+        guard let next = provider(consumed, busyTracks) else {
+            liveNote = "Nothing left to load"
+            return
+        }
+
+        deck.load(next.cue, url: next.url, into: engine)
+        liveNote = "Deck \(deck.id): \(next.cue.track.title)"
+        start()
+    }
+
+    /// Turning live mode on with empty decks should put the top of the running
+    /// order under your hands, not wait for something to finish first.
+    private func fillEmptyDecks() {
+        for deck in decks where !deck.isLoaded {
+            advance(deck)
+        }
     }
 
     /// Slam the crossfader to one deck, for a hard cut.

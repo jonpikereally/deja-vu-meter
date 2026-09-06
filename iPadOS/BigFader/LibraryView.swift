@@ -7,23 +7,29 @@ struct LibraryView: View {
     @ObservedObject var store: LibraryStore
 
     @State private var isImporting = false
-    @State private var renaming: Track?
+    @State private var editing: Track?
+    @State private var filter: Set<String> = []
+
+    private var visible: [Track] { store.tracks(matching: filter) }
 
     var body: some View {
         VStack(spacing: 10) {
             header
+            TagFilterBar(tags: store.allTags, selected: $filter)
 
             if store.tracks.isEmpty {
-                emptyState
+                emptyLibrary
+            } else if visible.isEmpty {
+                emptyFilter
             } else {
                 List {
-                    ForEach(store.tracks) { track in
-                        Button { renaming = track } label: { row(track) }
+                    ForEach(visible) { track in
+                        Button { editing = track } label: { row(track) }
                             .buttonStyle(.plain)
                             .listRowBackground(Theme.panel)
                             .listRowSeparatorTint(Theme.hairline)
                     }
-                    .onDelete(perform: store.deleteTracks)
+                    .onDelete(perform: delete)
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -39,9 +45,21 @@ struct LibraryView: View {
             case .failure(let error): store.lastError = error.localizedDescription
             }
         }
-        .sheet(item: $renaming) { track in
-            RenameTrackView(track: track) { store.rename(track, to: $0) }
+        .sheet(item: $editing) { track in
+            TrackDetailView(track: track, store: store)
         }
+    }
+
+    /// The list may be filtered, so a swipe deletes what the row shows rather
+    /// than whatever sits at that index in the full library.
+    private func delete(at offsets: IndexSet) {
+        let doomed = Set(offsets.map { visible[$0].id })
+        let realOffsets = IndexSet(
+            store.tracks.enumerated()
+                .filter { doomed.contains($0.element.id) }
+                .map(\.offset)
+        )
+        store.deleteTracks(at: realOffsets)
     }
 
     // MARK: - Pieces
@@ -81,12 +99,13 @@ struct LibraryView: View {
     }
 
     private var subtitle: String {
-        let count = store.tracks.count
+        let count = filter.isEmpty ? store.tracks.count : visible.count
         let megabytes = Double(store.storageUsed) / 1_000_000
-        return "\(count) track\(count == 1 ? "" : "s") - \(String(format: "%.0f", megabytes)) MB in the app"
+        let scope = filter.isEmpty ? "" : " of \(store.tracks.count)"
+        return "\(count)\(scope) track\(count == 1 ? "" : "s") - \(String(format: "%.0f", megabytes)) MB in the app"
     }
 
-    private var emptyState: some View {
+    private var emptyLibrary: some View {
         VStack(spacing: 10) {
             Spacer()
             Image(systemName: "music.note.list")
@@ -104,6 +123,21 @@ struct LibraryView: View {
         }
     }
 
+    private var emptyFilter: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            Text("Nothing with those tags")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundColor(Theme.labelStrong)
+            Text("Tag filters narrow rather than widen - a track has to carry all of them.")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.label)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Spacer()
+        }
+    }
+
     private func row(_ track: Track) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
@@ -111,70 +145,24 @@ struct LibraryView: View {
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.labelStrong)
                     .lineLimit(1)
-                Text(TimeFormat.clock(track.duration))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(Theme.label)
+                HStack(spacing: 6) {
+                    Text(TimeFormat.clock(track.duration))
+                        .monospacedDigit()
+                    if !track.tags.isEmpty {
+                        Text(track.tags.joined(separator: ", "))
+                            .foregroundColor(Theme.amber.opacity(0.9))
+                            .lineLimit(1)
+                    }
+                }
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.label)
             }
             Spacer()
-            Image(systemName: "pencil")
+            Image(systemName: "tag")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(Theme.label.opacity(0.5))
+                .foregroundColor(track.tags.isEmpty ? Theme.label.opacity(0.4) : Theme.amber)
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
-    }
-}
-
-/// Titles are taken from filenames on import, which is usually close and
-/// sometimes wrong, so they can be corrected in place.
-struct RenameTrackView: View {
-
-    let track: Track
-    let onCommit: (String) -> Void
-
-    @State private var title: String
-    @Environment(\.dismiss) private var dismiss
-
-    init(track: Track, onCommit: @escaping (String) -> Void) {
-        self.track = track
-        self.onCommit = onCommit
-        _title = State(initialValue: track.title)
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 14) {
-                TextField("Title", text: $title)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundColor(Theme.labelStrong)
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Theme.panel)
-                    )
-
-                Text("Titles come from the filename on import, not from the file's tags.")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(Theme.label)
-                    .multilineTextAlignment(.center)
-
-                Spacer()
-            }
-            .padding(18)
-            .background(Theme.background.ignoresSafeArea())
-            .navigationTitle("Rename")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        onCommit(title)
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .preferredColorScheme(.dark)
     }
 }

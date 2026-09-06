@@ -6,6 +6,7 @@ struct DeckView: View {
     @ObservedObject var deck: Deck
     @ObservedObject var store: LibraryStore
     let onLoad: () -> Void
+    let onEject: () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
@@ -170,6 +171,7 @@ struct DeckView: View {
                 action: deck.togglePlay,
                 isPrimary: true
             )
+            transportButton(symbol: "eject.fill", action: onEject)
         }
     }
 

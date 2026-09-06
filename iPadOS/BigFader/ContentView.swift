@@ -57,6 +57,7 @@ struct ContentView: View {
                 .padding(4)
         }
         .preferredColorScheme(.dark)
+        .onAppear(perform: connectLiveMode)
         .onChange(of: scenePhase) { phase in
             if phase == .active {
                 volume.refresh()
@@ -81,6 +82,37 @@ struct ContentView: View {
                 // the edit, so a fade changed mid-set takes effect at once.
                 edited.items.forEach { mixer.refresh(from: $0) }
             }
+        }
+    }
+
+    // MARK: - Live mode
+
+    /// Teaches the mixer how to find the next song without giving it any
+    /// knowledge of events or the file system.
+    ///
+    /// "Next" means: start after the furthest point in the running order either
+    /// deck has reached, then take the first entry that has not been consumed
+    /// and whose track is not on the other deck. It does not wrap -- the end of
+    /// the setlist is the end of the setlist.
+    private func connectLiveMode() {
+        let library = store
+        mixer.nextCue = { consumed, busyTracks in
+            guard let event = library.activeEvent else { return nil }
+            let entries = library.setlist(for: event)
+            guard !entries.isEmpty else { return nil }
+
+            let furthest = entries.lastIndex { consumed.contains($0.item.id) }
+            let start = furthest.map { $0 + 1 } ?? 0
+            guard start < entries.count else { return nil }
+
+            guard let entry = entries[start...].first(where: {
+                !consumed.contains($0.item.id) && !busyTracks.contains($0.track.id)
+            }) else { return nil }
+
+            return (
+                Cue(track: entry.track, edit: entry.item.edit, setlistItemID: entry.item.id),
+                library.url(for: entry.track)
+            )
         }
     }
 
@@ -135,9 +167,20 @@ struct ContentView: View {
         HStack(spacing: 12) {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    DeckView(deck: mixer.deckA, store: store) { loadingDeck = mixer.deckA }
-                    DeckView(deck: mixer.deckB, store: store) { loadingDeck = mixer.deckB }
+                    DeckView(
+                        deck: mixer.deckA,
+                        store: store,
+                        onLoad: { loadingDeck = mixer.deckA },
+                        onEject: { mixer.eject(mixer.deckA) }
+                    )
+                    DeckView(
+                        deck: mixer.deckB,
+                        store: store,
+                        onLoad: { loadingDeck = mixer.deckB },
+                        onEject: { mixer.eject(mixer.deckB) }
+                    )
                 }
+                liveBar
                 CrossfaderView(value: $mixer.crossfade) { mixer.centreCrossfade() }
             }
 
@@ -157,6 +200,48 @@ struct ContentView: View {
             }
             .frame(width: 132)
         }
+    }
+
+    /// Live mode, and whatever it last did.
+    private var liveBar: some View {
+        HStack(spacing: 10) {
+            Button { mixer.isLiveMode.toggle() } label: {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(mixer.isLiveMode ? Color.black : Theme.label.opacity(0.4))
+                        .frame(width: 7, height: 7)
+                    Text("LIVE")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .kerning(1)
+                }
+                .foregroundColor(mixer.isLiveMode ? .black : Theme.labelStrong)
+                .padding(.horizontal, 14)
+                .frame(height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(mixer.isLiveMode ? Theme.amber : Theme.panel)
+                )
+            }
+            .buttonStyle(.plain)
+
+            Text(liveStatus)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundColor(mixer.isLiveMode ? Theme.label : Theme.label.opacity(0.6))
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer()
+        }
+    }
+
+    private var liveStatus: String {
+        guard mixer.isLiveMode else {
+            return "Auto-loads the next song in the running order"
+        }
+        if let event = store.activeEvent {
+            return mixer.liveNote ?? "Following \(event.name)"
+        }
+        return "No active event - mark one in EVENTS"
     }
 
     // MARK: - Master strip

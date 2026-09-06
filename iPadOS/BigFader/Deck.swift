@@ -29,6 +29,10 @@ final class Deck: ObservableObject, Identifiable {
     /// the finger for the position value.
     var isScrubbing = false
 
+    /// Fired when playback reaches the end point of its own accord. The mixer
+    /// uses it to advance the setlist in live mode.
+    var onFinished: ((Deck) -> Void)?
+
     private var file: AVAudioFile?
     private var sampleRate: Double = 44_100
     private var startFrame: AVAudioFramePosition = 0
@@ -179,6 +183,9 @@ final class Deck: ObservableObject, Identifiable {
             isPlaying = false
             position = endPoint
             envelopeGain = 1
+            // isPlaying is already false, so tick() will not re-enter and fire
+            // this a second time on the next timer beat.
+            onFinished?(self)
         }
     }
 

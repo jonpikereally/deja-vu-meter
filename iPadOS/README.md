@@ -6,7 +6,7 @@ Spotify.
 - **MASTER** — one big fader on the iPad's **system output volume**, the same
   level the hardware buttons and Control Center move.
 - **MIXER** — two decks with a crossfader, each with its own volume fader.
-- **LIBRARY** — the tracks imported into the app.
+- **LIBRARY** — the tracks imported into the app, with tags.
 - **EVENTS** — running orders, with per-song fades and edit points.
 
 The app opens in whichever mode fits the window (MASTER in a narrow Split View
@@ -30,6 +30,17 @@ longer depends on where it came from: it keeps playing with Dropbox uninstalled,
 the iPad offline, or the original deleted. The cost is disk — the library counts
 its own size under the LIBRARY heading. Files are verified as decodable on
 import, so a bad file is rejected then rather than at the moment you need it.
+
+## Tags
+
+Tap a library row to name a track and tag it — "first dance", "chill", "closer",
+whatever you sort by. The filter bar above the library and above the setlist
+picker narrows by tag, which is where tags earn their keep: building a running
+order out of a few hundred tracks.
+
+Filters are **additive**: a track has to carry every selected tag, so "first
+dance" plus "slow" is a smaller list, not a bigger one. Tags are compared
+case-insensitively but stored as typed, so "Chill" and "chill" are one tag.
 
 ## Events and setlists
 
@@ -69,6 +80,25 @@ rather than as part of it.
 
 A track loaded straight from the library rather than from a setlist plays whole.
 Cutting it means putting it in an event first.
+
+## Live mode
+
+The **LIVE** toggle sits between the decks and the crossfader. With it on, a
+deck that finishes — or that you eject — reloads itself with the next song in
+the active event's running order.
+
+"Next" means: start after the furthest point in the running order either deck
+has reached, then take the first entry that has not been played and whose track
+is not on the other deck. Two decks working down one list, without ever both
+holding the same song. It does not wrap; the end of the setlist is the end.
+
+It **loads and cues, it does not start playing.** Bringing the next song in is
+the crossfader's job, and a deck that started itself mid-set would be worse than
+useless. Turning live mode on with empty decks fills both, so the top of the
+running order is under your hands straight away.
+
+Live mode needs an active event. Without one the toggle says so rather than
+doing nothing quietly.
 
 ## Waveforms
 
@@ -170,7 +200,8 @@ place in the song, not nudging a live level. The playhead is the white line, the
 trimmed region is lit, and the countdown runs to the entry's end point rather
 than the end of the file.
 
-**LOAD** opens the library for that deck. The active event's setlist comes
+**LOAD** opens the library for that deck; **eject** clears it, or in live mode
+swaps in the next song. The active event's setlist comes
 first, each entry cut the way that event wants it; below it, every track in the
 library, playable whole. Transport is cue-to-start and
 play/pause; drag the scrub bar to move within a track.

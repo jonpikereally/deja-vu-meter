@@ -223,6 +223,42 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
+    // MARK: - Tags
+
+    /// Every tag in use, for the filter bars and the suggestions when tagging.
+    var allTags: [String] {
+        var seen: [String: String] = [:]
+        for tag in tracks.flatMap(\.tags) {
+            // Keyed case-insensitively so "Chill" and "chill" are one tag,
+            // displayed however it was first typed.
+            seen[tag.lowercased()] = seen[tag.lowercased()] ?? tag
+        }
+        return seen.values.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+
+    func addTag(_ raw: String, to track: Track) {
+        let tag = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !tag.isEmpty,
+              let index = tracks.firstIndex(where: { $0.id == track.id }),
+              !tracks[index].matches(tag: tag) else { return }
+        tracks[index].tags.append(tag)
+        save()
+    }
+
+    func removeTag(_ tag: String, from track: Track) {
+        guard let index = tracks.firstIndex(where: { $0.id == track.id }) else { return }
+        tracks[index].tags.removeAll { $0.caseInsensitiveCompare(tag) == .orderedSame }
+        save()
+    }
+
+    /// Tracks carrying every one of `tags`, or all of them when nothing is
+    /// selected. Filters are additive on purpose: "first dance" plus "slow"
+    /// should narrow, not widen.
+    func tracks(matching tags: Set<String>) -> [Track] {
+        guard !tags.isEmpty else { return tracks }
+        return tracks.filter { track in tags.allSatisfy { track.matches(tag: $0) } }
+    }
+
     func deleteTracks(at offsets: IndexSet) {
         let doomed = offsets.map { tracks[$0] }
         for track in doomed {
