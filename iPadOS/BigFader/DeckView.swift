@@ -10,6 +10,7 @@ struct DeckView: View {
         VStack(spacing: 8) {
             header
             title
+            badges
             scrubber
             transport
             Fader(
@@ -66,6 +67,37 @@ struct DeckView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Shows at a glance that a loaded song is trimmed or faded, so an edit
+    /// made in the library is visible from the mixer.
+    @ViewBuilder
+    private var badges: some View {
+        if let track = deck.track, track.isTrimmed || track.hasFades {
+            HStack(spacing: 5) {
+                if track.isTrimmed {
+                    badge("TRIM " + TimeFormat.clock(track.startPoint) + "-" + TimeFormat.clock(track.endPoint))
+                }
+                if track.hasFades {
+                    badge("IN " + TimeFormat.seconds(track.fadeIn) + " OUT " + TimeFormat.seconds(track.fadeOut))
+                }
+                Spacer()
+            }
+        }
+    }
+
+    private func badge(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 8, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundColor(Theme.amber)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Theme.amber.opacity(0.14))
+            )
+            .lineLimit(1)
+    }
+
     private var scrubber: some View {
         VStack(spacing: 2) {
             Slider(
@@ -83,9 +115,11 @@ struct DeckView: View {
             .disabled(!deck.isLoaded)
 
             HStack {
-                Text(Self.clock(deck.position))
+                Text(TimeFormat.clock(deck.position))
                 Spacer()
-                Text("-" + Self.clock(max(deck.duration - deck.position, 0)))
+                // Counts down to the track's end point, not the end of the
+                // file, so a trimmed song reads as the length it will play.
+                Text("-" + TimeFormat.clock(max(deck.endPoint - deck.position, 0)))
             }
             .font(.system(size: 10, weight: .medium, design: .rounded))
             .monospacedDigit()
@@ -123,11 +157,5 @@ struct DeckView: View {
         .buttonStyle(.plain)
         .disabled(!deck.isLoaded)
         .opacity(deck.isLoaded ? 1 : 0.4)
-    }
-
-    private static func clock(_ seconds: TimeInterval) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let whole = Int(seconds.rounded(.down))
-        return String(format: "%d:%02d", whole / 60, whole % 60)
     }
 }

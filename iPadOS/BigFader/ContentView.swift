@@ -1,26 +1,29 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ContentView: View {
 
     private enum Mode: String, CaseIterable {
         case master = "MASTER"
         case mixer = "MIXER"
+        case library = "LIBRARY"
+        case events = "EVENTS"
     }
 
     @StateObject private var volume = SystemVolume()
     @StateObject private var mixer = AudioMixer()
+    @StateObject private var store = LibraryStore()
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
 
-    /// Nil until the mode is chosen by hand, so the layout follows the window
+    /// Nil until a mode is chosen by hand, so the layout follows the window
     /// width -- MASTER in a narrow Split View column, MIXER when there is room
     /// -- without overriding a deliberate choice afterwards.
     @State private var chosenMode: Mode?
-    @State private var importingInto: Deck?
-    @State private var isImporting = false
-    @State private var importError: String?
+
+    @State private var loadingDeck: Deck?
+    @State private var editingTrack: Track?
+    @State private var editingEvent: Event?
 
     private var mode: Mode {
         chosenMode ?? (sizeClass == .compact ? .master : .mixer)
@@ -32,11 +35,14 @@ struct ContentView: View {
 
             VStack(spacing: 12) {
                 modePicker
-                if mode == .master {
-                    masterPanel
-                } else {
-                    mixerPanel
+
+                switch mode {
+                case .master: masterPanel
+                case .mixer: mixerPanel
+                case .library: LibraryView(store: store) { editingTrack = $0 }
+                case .events: EventsView(store: store) { editingEvent = $0 }
                 }
+
                 errorLine
             }
             .padding(.horizontal, 14)
@@ -53,26 +59,54 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { phase in
-            if phase == .active { volume.refresh() }
+            if phase == .active {
+                volume.refresh()
+            } else {
+                store.flush()
+            }
         }
-        .fileImporter(
-            isPresented: $isImporting,
-            allowedContentTypes: [.audio],
-            allowsMultipleSelection: false
-        ) { result in
-            handleImport(result)
+        .sheet(item: $loadingDeck) { deck in
+            TrackPickerView(title: "Load deck \(deck.id)", sections: loaderSections) { track in
+                mixer.load(track, url: store.url(for: track), into: deck)
+            }
         }
+        .sheet(item: $editingTrack) { track in
+            TrackEditorView(track: track) { edited in
+                store.update(edited)
+                // Keep a deck already holding this track in step with the edit.
+                mixer.refresh(from: edited)
+            }
+        }
+        .sheet(item: $editingEvent) { event in
+            EventEditorView(event: event, store: store) { store.update($0) }
+        }
+    }
+
+    // MARK: - Deck loading
+
+    /// The active event's running order first, then everything else, so the
+    /// next song of the night is at the top rather than buried alphabetically.
+    private var loaderSections: [(String, [Track])] {
+        guard let event = store.activeEvent else {
+            return [("ALL TRACKS", store.tracks)]
+        }
+        let setlist = store.setlist(for: event)
+        let setlistIDs = Set(setlist.map(\.id))
+        let rest = store.tracks.filter { !setlistIDs.contains($0.id) }
+        return [(event.name.uppercased(), setlist), ("ALL TRACKS", rest)]
     }
 
     // MARK: - Layouts
 
     private var modePicker: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             ForEach(Mode.allCases, id: \.self) { candidate in
                 Button { chosenMode = candidate } label: {
                     Text(candidate.rawValue)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .kerning(1)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .kerning(0.5)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .foregroundColor(mode == candidate ? .black : Theme.label)
                         .frame(maxWidth: .infinity)
                         .frame(height: 30)
@@ -103,8 +137,8 @@ struct ContentView: View {
         HStack(spacing: 12) {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    DeckView(deck: mixer.deckA) { beginImport(into: mixer.deckA) }
-                    DeckView(deck: mixer.deckB) { beginImport(into: mixer.deckB) }
+                    DeckView(deck: mixer.deckA) { loadingDeck = mixer.deckA }
+                    DeckView(deck: mixer.deckB) { loadingDeck = mixer.deckB }
                 }
                 CrossfaderView(value: $mixer.crossfade) { mixer.centreCrossfade() }
             }
@@ -168,30 +202,11 @@ struct ContentView: View {
 
     @ViewBuilder
     private var errorLine: some View {
-        if let message = importError ?? mixer.engineError {
+        if let message = store.lastError ?? mixer.engineError {
             Text(message)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundColor(Theme.red)
                 .lineLimit(2)
-        }
-    }
-
-    // MARK: - Loading
-
-    private func beginImport(into deck: Deck) {
-        importError = nil
-        importingInto = deck
-        isImporting = true
-    }
-
-    private func handleImport(_ result: Result<[URL], Error>) {
-        defer { importingInto = nil }
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first, let deck = importingInto else { return }
-            mixer.load(url, into: deck)
-        case .failure(let error):
-            importError = error.localizedDescription
         }
     }
 }
