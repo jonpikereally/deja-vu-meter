@@ -17,6 +17,11 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var isImporting = false
     @Published var lastError: String?
 
+    /// Peak overviews, keyed by track. Published so a view redraws when one
+    /// finishes generating in the background.
+    @Published private(set) var waveforms: [UUID: [UInt8]] = [:]
+    private var pendingWaveforms: Set<UUID> = []
+
     private let fileManager = FileManager.default
 
     /// Writes are coalesced: dragging a slider in the track editor commits on
@@ -41,8 +46,16 @@ final class LibraryStore: ObservableObject {
         documents.appendingPathComponent("Audio", isDirectory: true)
     }
 
+    private var waveformDirectory: URL {
+        documents.appendingPathComponent("Waveforms", isDirectory: true)
+    }
+
     private var indexURL: URL {
         documents.appendingPathComponent("library.json")
+    }
+
+    private func waveformURL(for track: Track) -> URL {
+        waveformDirectory.appendingPathComponent(track.id.uuidString)
     }
 
     /// Where a track's audio actually is. Built from the filename each time
@@ -135,16 +148,62 @@ final class LibraryStore: ObservableObject {
             let rate = file.processingFormat.sampleRate
             let duration = rate > 0 ? Double(file.length) / rate : 0
 
-            return Track(
+            let track = Track(
                 id: id,
                 title: source.deletingPathExtension().lastPathComponent,
                 filename: filename,
                 duration: duration
             )
+
+            // Already on a background queue, and the file is warm from the
+            // copy, so this is the cheapest moment to draw the overview.
+            // A failure here is not fatal -- the view backfills it later.
+            try? writeWaveform(for: track, from: destination)
+
+            return track
         } catch {
             try? fileManager.removeItem(at: destination)
             throw error
         }
+    }
+
+    // MARK: - Waveforms
+
+    /// Make sure a track's overview is loaded, generating it if this is an
+    /// import from before waveforms existed or one that failed at import.
+    /// Safe to call repeatedly from a view body path.
+    func ensureWaveform(for track: Track) {
+        guard waveforms[track.id] == nil, !pendingWaveforms.contains(track.id) else { return }
+
+        if let data = try? Data(contentsOf: waveformURL(for: track)), !data.isEmpty {
+            waveforms[track.id] = [UInt8](data)
+            return
+        }
+
+        pendingWaveforms.insert(track.id)
+        let audioURL = url(for: track)
+
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let peaks = (try? WaveformGenerator.generate(from: audioURL)) ?? []
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.pendingWaveforms.remove(track.id)
+                guard !peaks.isEmpty else { return }
+                self.waveforms[track.id] = peaks
+                try? self.persistWaveform(peaks, for: track)
+            }
+        }
+    }
+
+    private func writeWaveform(for track: Track, from audioURL: URL) throws {
+        let peaks = try WaveformGenerator.generate(from: audioURL)
+        guard !peaks.isEmpty else { return }
+        try persistWaveform(peaks, for: track)
+    }
+
+    private func persistWaveform(_ peaks: [UInt8], for track: Track) throws {
+        try fileManager.createDirectory(at: waveformDirectory, withIntermediateDirectories: true)
+        try Data(peaks).write(to: waveformURL(for: track), options: .atomic)
     }
 
     // MARK: - Tracks
@@ -168,6 +227,8 @@ final class LibraryStore: ObservableObject {
         let doomed = offsets.map { tracks[$0] }
         for track in doomed {
             try? fileManager.removeItem(at: url(for: track))
+            try? fileManager.removeItem(at: waveformURL(for: track))
+            waveforms[track.id] = nil
         }
         tracks.remove(atOffsets: offsets)
 

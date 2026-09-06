@@ -9,20 +9,38 @@ struct EditPointsView: View {
 
     let track: Track
     @State private var draft: EditPoints
+    @ObservedObject private var store: LibraryStore
     let onCommit: (EditPoints) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    init(track: Track, edit: EditPoints, onCommit: @escaping (EditPoints) -> Void) {
+    init(
+        track: Track,
+        edit: EditPoints,
+        store: LibraryStore,
+        onCommit: @escaping (EditPoints) -> Void
+    ) {
         self.track = track
         _draft = State(initialValue: edit)
+        _store = ObservedObject(wrappedValue: store)
         self.onCommit = onCommit
+    }
+
+    /// Edit points as fractions of the whole file, which is what the waveform
+    /// draws in.
+    private var startFraction: Double {
+        track.duration > 0 ? draft.startPoint / track.duration : 0
+    }
+
+    private var endFraction: Double {
+        track.duration > 0 ? min(draft.endPoint / track.duration, 1) : 1
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
+                    waveform
                     summary
 
                     slider(
@@ -82,6 +100,7 @@ struct EditPointsView: View {
                 .padding(18)
             }
             .background(Theme.background.ignoresSafeArea())
+            .onAppear { store.ensureWaveform(for: track) }
             .navigationTitle(track.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -108,6 +127,60 @@ struct EditPointsView: View {
     }
 
     // MARK: - Pieces
+
+    private var waveform: some View {
+        VStack(spacing: 6) {
+            GeometryReader { geo in
+                ZStack(alignment: .topLeading) {
+                    WaveformView(
+                        peaks: store.waveforms[track.id] ?? [],
+                        range: startFraction...max(endFraction, startFraction),
+                        fadeIn: track.duration > 0 ? draft.fadeIn / track.duration : 0,
+                        fadeOut: track.duration > 0 ? draft.fadeOut / track.duration : 0
+                    )
+
+                    handle(at: startFraction, isStart: true, in: geo.size)
+                    handle(at: endFraction, isStart: false, in: geo.size)
+                }
+                .coordinateSpace(name: "waveform")
+            }
+            .frame(height: 120)
+
+            Text("Drag the handles to trim. The sliders below do the same thing to a tenth of a second.")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.label)
+        }
+    }
+
+    private func handle(at fraction: Double, isStart: Bool, in size: CGSize) -> some View {
+        let x = min(max(fraction, 0), 1) * size.width
+
+        return ZStack {
+            Rectangle()
+                .fill(Color.white.opacity(0.9))
+                .frame(width: 2)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.white.opacity(0.9))
+                .frame(width: 10, height: 22)
+                .offset(y: isStart ? -size.height / 2 + 11 : size.height / 2 - 11)
+        }
+        // A 2pt bar is not a touch target; the wider frame is.
+        .frame(width: 40, height: size.height)
+        .contentShape(Rectangle())
+        .position(x: x, y: size.height / 2)
+        .gesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .named("waveform"))
+                .onChanged { value in
+                    guard track.duration > 0 else { return }
+                    let moved = min(max(value.location.x / size.width, 0), 1) * track.duration
+                    if isStart {
+                        draft.startPoint = min(moved, draft.endPoint - 0.5)
+                    } else {
+                        draft.endPoint = max(moved, draft.startPoint + 0.5)
+                    }
+                }
+        )
+    }
 
     private var summary: some View {
         HStack {

@@ -48,7 +48,9 @@ same song can open a ceremony trimmed to its first verse and close a dance floor
 running full length, in two different events, with no conflict — and twice in
 one running order, cut differently each time.
 
-Tap any row in an event's setlist to set four things:
+Tap any row in an event's setlist to open it against its waveform. Drag the
+handles to trim; the sliders below do the same thing to a tenth of a second.
+Four things to set:
 
 | | |
 |---|---|
@@ -61,8 +63,27 @@ The four are clamped against each other, so start can never pass end and two
 fades can never overlap (each is capped at half the trimmed length). Edits
 commit live: a deck already playing that entry picks them up while you drag.
 
+The waveform shows the trimmed region lit and the rest dimmed, with the gain
+envelope drawn across the top so a fade reads as a shape applied to the audio
+rather than as part of it.
+
 A track loaded straight from the library rather than from a setlist plays whole.
 Cutting it means putting it in an event first.
+
+## Waveforms
+
+Overviews are generated on import, in the same background pass as the copy,
+while the file is still warm. One byte per bin, 1200 bins, so a whole overview
+is about a kilobyte on disk next to the audio. Anything imported before
+waveforms existed is backfilled the first time it is shown.
+
+They are normalised to each track's own loudest moment: this is a picture of the
+*shape* of a song, for finding where the intro ends and the outro starts, not a
+level meter. A quiet recording still fills the frame.
+
+Drawing is per screen column rather than per bin -- at these sizes there are
+more bins than pixels, so each column takes the loudest bin it covers, which
+keeps a transient visible instead of letting it fall between samples.
 
 `AVAudioPlayerNode` has no gain-ramp API, so fades are applied by writing volume
 from the transport timer at 30 Hz. A one-second fade moves in 3% steps — short
@@ -144,6 +165,11 @@ together from the App Switcher.
 
 ### Decks
 
+Drag the waveform to scrub -- absolute, unlike the faders: you are pointing at a
+place in the song, not nudging a live level. The playhead is the white line, the
+trimmed region is lit, and the countdown runs to the entry's end point rather
+than the end of the file.
+
 **LOAD** opens the library for that deck. The active event's setlist comes
 first, each entry cut the way that event wants it; below it, every track in the
 library, playable whole. Transport is cue-to-start and
@@ -175,8 +201,6 @@ ear, not as a measurement.
 - **Track titles come from filenames**, not from tags. Files named
   "Artist - Title" read correctly; ones named "track07" do not. Tap a library
   row to rename.
-- **No waveform display.** Edit points are set on sliders against a clock, not
-  against a picture of the audio.
 - **The system volume HUD still appears** when you use the hardware buttons.
   Suppressing it needs private API.
 - **No haptics.** iPads have no Taptic Engine, so the faders have no detent feel.

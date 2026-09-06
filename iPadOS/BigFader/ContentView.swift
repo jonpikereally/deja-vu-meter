@@ -135,8 +135,8 @@ struct ContentView: View {
         HStack(spacing: 12) {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    DeckView(deck: mixer.deckA) { loadingDeck = mixer.deckA }
-                    DeckView(deck: mixer.deckB) { loadingDeck = mixer.deckB }
+                    DeckView(deck: mixer.deckA, store: store) { loadingDeck = mixer.deckA }
+                    DeckView(deck: mixer.deckB, store: store) { loadingDeck = mixer.deckB }
                 }
                 CrossfaderView(value: $mixer.crossfade) { mixer.centreCrossfade() }
             }

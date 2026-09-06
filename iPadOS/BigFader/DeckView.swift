@@ -4,6 +4,7 @@ import SwiftUI
 struct DeckView: View {
 
     @ObservedObject var deck: Deck
+    @ObservedObject var store: LibraryStore
     let onLoad: () -> Void
 
     var body: some View {
@@ -31,6 +32,25 @@ struct DeckView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(Theme.hairline, lineWidth: 1)
         )
+        .onAppear { ensureWaveform() }
+        .onChange(of: deck.cue) { _ in ensureWaveform() }
+    }
+
+    private func ensureWaveform() {
+        guard let track = deck.cue?.track else { return }
+        store.ensureWaveform(for: track)
+    }
+
+    /// The trimmed region as fractions of the whole file, for the waveform.
+    private var trimRange: ClosedRange<Double> {
+        guard deck.duration > 0, let edit = deck.edit else { return 0...1 }
+        let lower = min(max(edit.startPoint / deck.duration, 0), 1)
+        let upper = min(max(edit.endPoint / deck.duration, lower), 1)
+        return lower...upper
+    }
+
+    private func fraction(of seconds: TimeInterval) -> Double {
+        deck.duration > 0 ? seconds / deck.duration : 0
     }
 
     // MARK: - Pieces
@@ -98,21 +118,36 @@ struct DeckView: View {
             .lineLimit(1)
     }
 
+    /// Drag the waveform to scrub. Absolute here, unlike the faders: you are
+    /// pointing at a place in the song, not nudging a live level.
     private var scrubber: some View {
-        VStack(spacing: 2) {
-            Slider(
-                value: Binding(
-                    get: { deck.position },
-                    set: { deck.position = $0 }
-                ),
-                in: 0...max(deck.duration, 0.01),
-                onEditingChanged: { editing in
-                    deck.isScrubbing = editing
-                    if !editing { deck.seek(to: deck.position) }
-                }
-            )
-            .tint(Theme.amber)
-            .disabled(!deck.isLoaded)
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                WaveformView(
+                    peaks: deck.cue.map { store.waveforms[$0.track.id] ?? [] } ?? [],
+                    range: trimRange,
+                    fadeIn: fraction(of: deck.edit?.fadeIn ?? 0),
+                    fadeOut: fraction(of: deck.edit?.fadeOut ?? 0),
+                    progress: deck.duration > 0 ? deck.position / deck.duration : nil
+                )
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            guard deck.isLoaded, deck.duration > 0 else { return }
+                            deck.isScrubbing = true
+                            let hit = min(max(value.location.x / geo.size.width, 0), 1)
+                            deck.position = hit * deck.duration
+                        }
+                        .onEnded { _ in
+                            guard deck.isLoaded else { return }
+                            deck.isScrubbing = false
+                            deck.seek(to: deck.position)
+                        }
+                )
+            }
+            .frame(height: 46)
+            .opacity(deck.isLoaded ? 1 : 0.5)
 
             HStack {
                 Text(TimeFormat.clock(deck.position))
