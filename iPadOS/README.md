@@ -150,22 +150,52 @@ If you only need a few fixed levels rather than a fader, the Shortcuts app has a
 **Set Volume** action, and a Shortcuts widget will run it straight from the Home
 Screen with no code at all. That gets you preset steps, not continuous control.
 
-## Building it
+## Getting it onto the iPad
 
-Requires a Mac and Xcode 16 or newer. Targets **iOS 16.0**, which covers every
-iPad in the inventory including the 9.7 (that one caps at iPadOS 16).
+There is no way around a Mac: an iPad cannot build an iPad app. What you need is
+Xcode, a cable, and about fifteen minutes the first time.
 
-1. Open `iPadOS/BigFader.xcodeproj`.
-2. Select the **BigFader** target, then **Signing & Capabilities**, and set
-   **Team** to your Apple ID. The bundle identifier ships as
-   `com.jonpike.BigFader`; change it if Xcode reports it as taken.
-3. Optional, in the same tab: **+ Capability > Background Modes > Audio**, if
-   you want the decks to keep playing when you switch away from the app. Left
-   off by default, since in Split View both apps are foreground anyway.
-4. Plug in the iPad, pick it as the run destination, and press Run.
+**Before you start.** Xcode 16 needs macOS Sequoia 15.x or newer, so check what
+the Mac is on before downloading 8 GB. Targets **iOS 16.0**, so any of the iPads
+will run it.
 
-A free Apple ID signs the app for **7 days**, after which it stops launching and
-has to be re-run from Xcode. A paid Apple Developer account signs it for a year.
+1. **Install Xcode** from the Mac App Store. It is a large download and the
+   first launch installs more components on top.
+2. **Open `iPadOS/BigFader.xcodeproj`.**
+3. **Signing.** Select the project in the sidebar, then the **BigFader** target,
+   then **Signing & Capabilities**. Tick *Automatically manage signing* and set
+   **Team** to your Apple ID — add it under Xcode > Settings > Accounts if it is
+   not listed. If Xcode says the bundle identifier is taken, change
+   `com.jonpike.BigFader` to anything unique.
+4. **Optional, same tab:** *+ Capability > Background Modes > Audio*, if you
+   want the decks to keep playing when you switch away from the app. Off by
+   default, since in Split View both apps are foreground anyway.
+5. **Plug the iPad in** with a cable and unlock it. Tap **Trust** on the "Trust
+   this computer?" prompt.
+6. **Turn on Developer Mode on the iPad.** This is the step everyone misses:
+   *Settings > Privacy & Security > Developer Mode*, switch on, restart the iPad
+   when it asks. Required on iPadOS 16 and later; the entry only appears once a
+   Mac running Xcode has been connected at least once.
+7. **Pick the iPad** from the run-destination menu at the top of the Xcode
+   window, and press **Run** (the play button, or Cmd-R).
+8. **Trust the certificate.** The first run installs the app but refuses to
+   launch it. On the iPad: *Settings > General > VPN & Device Management*, tap
+   your Apple ID under *Developer App*, then **Trust**. Press Run again.
+
+The app can then be launched from the Home Screen with the cable unplugged. To
+put it beside Spotify: open Spotify, swipe up the Dock, and drag Big Fader out
+to the side.
+
+**A free Apple ID signs the app for 7 days**, after which it stops launching and
+has to be re-run from Xcode. A paid Apple Developer Program membership signs it
+for a year.
+
+### If the first build fails
+
+Expect this. None of this code has ever been compiled — there is no Mac in the
+environment it was written in — so the first build is where any mistake in it
+shows up. Xcode lists the errors in the Issue navigator (Cmd-5); the file, line
+and message from the first few are enough to fix them.
 
 If the project will not open, it can be regenerated instead — the sources are
 the real deliverable and the project file is disposable:
