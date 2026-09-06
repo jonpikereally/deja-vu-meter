@@ -40,7 +40,10 @@ final class AudioMixer: ObservableObject {
             .sink { [weak self] _ in self?.handleConfigurationChange() }
             .store(in: &cancellables)
 
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        // 30 Hz: fast enough that the fade ramps are smooth, since
+        // AVAudioPlayerNode has no gain-ramp API and the fades are applied by
+        // writing volume from here.
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             self?.decks.forEach { $0.tick() }
         }
     }
@@ -52,9 +55,15 @@ final class AudioMixer: ObservableObject {
 
     var decks: [Deck] { [deckA, deckB] }
 
-    func load(_ url: URL, into deck: Deck) {
-        deck.load(url, into: engine)
+    func load(_ track: Track, url: URL, into deck: Deck) {
+        deck.load(track, url: url, into: engine)
         start()
+    }
+
+    /// Push a track edit out to whichever deck is holding it, so changing a
+    /// fade or an edit point takes effect without reloading.
+    func refresh(from track: Track) {
+        decks.forEach { $0.refresh(from: track) }
     }
 
     /// Slam the crossfader to one deck, for a hard cut.
