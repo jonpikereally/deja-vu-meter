@@ -26,6 +26,7 @@ struct DeckLoaderView: View {
                                         title: entry.track.title,
                                         detail: detail(for: entry),
                                         number: index + 1,
+                                        isPlayable: entry.track.isResolved,
                                         cue: Cue(
                                             track: entry.track,
                                             edit: entry.item.edit,
@@ -39,11 +40,14 @@ struct DeckLoaderView: View {
                         }
 
                         Section {
-                            ForEach(tracks) { track in
+                            // Only the ones with audio: an entry from a shared
+                            // set that has none is not something to offer here.
+                            ForEach(tracks.filter(\.isResolved)) { track in
                                 pick(
                                     title: track.title,
                                     detail: TimeFormat.clock(track.duration) + "  -  whole track",
                                     number: nil,
+                                    isPlayable: true,
                                     cue: Cue(track: track, edit: .whole(track.duration), setlistItemID: nil)
                                 )
                             }
@@ -76,7 +80,13 @@ struct DeckLoaderView: View {
             .foregroundColor(Theme.label)
     }
 
-    private func pick(title: String, detail: String, number: Int?, cue: Cue) -> some View {
+    private func pick(
+        title: String,
+        detail: String,
+        number: Int?,
+        isPlayable: Bool,
+        cue: Cue
+    ) -> some View {
         Button {
             onPick(cue)
             dismiss()
@@ -94,10 +104,10 @@ struct DeckLoaderView: View {
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(Theme.labelStrong)
                         .lineLimit(1)
-                    Text(detail)
+                    Text(isPlayable ? detail : "audio missing - add the file in LIBRARY")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .monospacedDigit()
-                        .foregroundColor(Theme.label)
+                        .foregroundColor(isPlayable ? Theme.label : Theme.red)
                         .lineLimit(1)
                 }
                 Spacer()
@@ -106,6 +116,8 @@ struct DeckLoaderView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!isPlayable)
+        .opacity(isPlayable ? 1 : 0.6)
         .listRowBackground(Theme.panel)
     }
 

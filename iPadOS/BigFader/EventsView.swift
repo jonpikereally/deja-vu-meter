@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The list of events. One can be made active, which puts its setlist at the
 /// top of the deck loader.
@@ -6,6 +7,9 @@ struct EventsView: View {
 
     @ObservedObject var store: LibraryStore
     let onEdit: (Event) -> Void
+
+    @State private var exporting: ExportFile?
+    @State private var isImportingSet = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -27,6 +31,19 @@ struct EventsView: View {
                 .scrollContentBackground(.hidden)
             }
         }
+        .fileImporter(
+            isPresented: $isImportingSet,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls): if let url = urls.first { store.importSet(from: url) }
+            case .failure(let error): store.lastError = error.localizedDescription
+            }
+        }
+        .sheet(item: $exporting) { file in
+            ShareSheet(url: file.url)
+        }
     }
 
     private var header: some View {
@@ -36,6 +53,18 @@ struct EventsView: View {
                 .kerning(1)
                 .foregroundColor(Theme.label)
             Spacer()
+
+            smallButton("IMPORT", symbol: "square.and.arrow.down") {
+                isImportingSet = true
+            }
+
+            smallButton("EXPORT", symbol: "square.and.arrow.up") {
+                if let url = store.exportedSetURL() {
+                    exporting = ExportFile(url: url)
+                }
+            }
+            .disabled(store.events.isEmpty && store.tracks.isEmpty)
+
             Button { onEdit(store.addEvent()) } label: {
                 Label("NEW EVENT", systemImage: "plus")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -51,6 +80,25 @@ struct EventsView: View {
         }
     }
 
+    private func smallButton(
+        _ title: String,
+        symbol: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundColor(Theme.labelStrong)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Theme.panel)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var emptyState: some View {
         VStack(spacing: 8) {
             Spacer()
@@ -60,7 +108,7 @@ struct EventsView: View {
             Text("No events yet")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundColor(Theme.labelStrong)
-            Text("An event is a name, a date and a running order picked from the library.")
+            Text("An event is a name, a date and a running order picked from the library. IMPORT reads a set shared from another device; the songs relink themselves when you add the audio.")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundColor(Theme.label)
                 .multilineTextAlignment(.center)

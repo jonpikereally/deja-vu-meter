@@ -148,6 +148,12 @@ struct LibraryView: View {
                 HStack(spacing: 6) {
                     Text(TimeFormat.clock(track.duration))
                         .monospacedDigit()
+                    if !track.isResolved {
+                        // Came in from a shared set without its audio. Says so
+                        // here rather than failing at the moment it is loaded.
+                        Text("add the audio")
+                            .foregroundColor(Theme.red)
+                    }
                     if !track.tags.isEmpty {
                         Text(track.tags.joined(separator: ", "))
                             .foregroundColor(Theme.amber.opacity(0.9))
@@ -158,9 +164,12 @@ struct LibraryView: View {
                 .foregroundColor(Theme.label)
             }
             Spacer()
-            Image(systemName: "tag")
+            Image(systemName: track.isResolved ? "tag" : "exclamationmark.triangle")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(track.tags.isEmpty ? Theme.label.opacity(0.4) : Theme.amber)
+                .foregroundColor(
+                    !track.isResolved ? Theme.red
+                        : track.tags.isEmpty ? Theme.label.opacity(0.4) : Theme.amber
+                )
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())

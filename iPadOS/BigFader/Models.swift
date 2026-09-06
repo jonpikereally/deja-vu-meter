@@ -61,9 +61,18 @@ struct Track: Codable, Identifiable, Hashable {
 
     let id: UUID
     var title: String
+
+    /// Name inside the app's audio directory. Empty means the track came in
+    /// from a shared set and its audio has not been supplied yet: the running
+    /// order knows about the song, this device does not have the file.
     var filename: String
+
     var duration: TimeInterval
     var addedAt: Date
+
+    /// SHA-256 of the audio bytes. Track IDs are generated locally, so this is
+    /// what matches the same song across two devices when a set is shared.
+    var audioHash: String?
 
     /// Free-form labels for finding a song again -- "first dance", "chill",
     /// "closer". Compared case-insensitively but stored as typed.
@@ -75,7 +84,8 @@ struct Track: Codable, Identifiable, Hashable {
         filename: String,
         duration: TimeInterval,
         addedAt: Date = Date(),
-        tags: [String] = []
+        tags: [String] = [],
+        audioHash: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -83,10 +93,19 @@ struct Track: Codable, Identifiable, Hashable {
         self.duration = duration
         self.addedAt = addedAt
         self.tags = tags
+        self.audioHash = audioHash
+    }
+
+    /// False for a song that arrived in a shared set without its audio.
+    var isResolved: Bool { !filename.isEmpty }
+
+    var fileExtension: String? {
+        let ext = (filename as NSString).pathExtension
+        return ext.isEmpty ? nil : ext
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, filename, duration, addedAt, tags
+        case id, title, filename, duration, addedAt, tags, audioHash
     }
 
     /// Written by hand only so that a library saved before tags existed still
@@ -100,6 +119,7 @@ struct Track: Codable, Identifiable, Hashable {
         duration = try container.decode(TimeInterval.self, forKey: .duration)
         addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
         tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        audioHash = try container.decodeIfPresent(String.self, forKey: .audioHash)
     }
 
     func matches(tag: String) -> Bool {

@@ -19,6 +19,7 @@ struct EventEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isAddingSongs = false
     @State private var editTarget: EditTarget?
+    @State private var exporting: ExportFile?
 
     init(event: Event, store: LibraryStore, onCommit: @escaping (Event) -> Void) {
         _draft = State(initialValue: event)
@@ -37,6 +38,19 @@ struct EventEditorView: View {
             .navigationTitle("Event")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        // Committed first, so the file carries what is on
+                        // screen rather than the last saved version.
+                        onCommit(draft)
+                        if let url = store.exportedSetURL(for: draft) {
+                            exporting = ExportFile(url: url)
+                        }
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .disabled(draft.items.isEmpty)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
@@ -44,6 +58,9 @@ struct EventEditorView: View {
         }
         .preferredColorScheme(.dark)
         .onChange(of: draft) { edited in onCommit(edited) }
+        .sheet(item: $exporting) { file in
+            ShareSheet(url: file.url)
+        }
         .sheet(isPresented: $isAddingSongs) {
             TrackPickerView(tracks: store.tracks, allTags: store.allTags) { track in
                 draft.items.append(store.newItem(for: track))

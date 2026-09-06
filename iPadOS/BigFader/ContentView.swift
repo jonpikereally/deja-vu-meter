@@ -290,6 +290,11 @@ struct ContentView: View {
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundColor(Theme.red)
                 .lineLimit(2)
+        } else if let notice = store.lastNotice {
+            Text(notice)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.label)
+                .lineLimit(2)
         }
     }
 }
