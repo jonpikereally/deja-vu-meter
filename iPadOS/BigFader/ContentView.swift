@@ -21,11 +21,24 @@ struct ContentView: View {
     /// -- without overriding a deliberate choice afterwards.
     @State private var chosenMode: Mode?
 
+    /// The system-volume fader can be turned off entirely, for when the level
+    /// is set somewhere else -- another volume app, an interface, the desk.
+    /// Persisted, because it is a rig decision rather than a per-session one.
+    @AppStorage("showMasterFader") private var showMasterFader = true
+    @State private var showingSettings = false
+
     @State private var loadingDeck: Deck?
     @State private var editingEvent: Event?
 
+    private var modes: [Mode] {
+        showMasterFader ? Mode.allCases : Mode.allCases.filter { $0 != .master }
+    }
+
     private var mode: Mode {
-        chosenMode ?? (sizeClass == .compact ? .master : .mixer)
+        let chosen = chosenMode ?? (sizeClass == .compact ? .master : .mixer)
+        // With the master fader hidden its tab is gone, so a mode left pointing
+        // at it has to fall somewhere real.
+        return modes.contains(chosen) ? chosen : .mixer
     }
 
     var body: some View {
@@ -74,6 +87,9 @@ struct ContentView: View {
             ) { cue in
                 mixer.load(cue, url: store.url(for: cue.track), into: deck)
             }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(showMasterFader: $showMasterFader, volume: volume)
         }
         .sheet(item: $editingEvent) { event in
             EventEditorView(event: event, store: store) { edited in
@@ -130,7 +146,7 @@ struct ContentView: View {
 
     private var modePicker: some View {
         HStack(spacing: 5) {
-            ForEach(Mode.allCases, id: \.self) { candidate in
+            ForEach(modes, id: \.self) { candidate in
                 Button { chosenMode = candidate } label: {
                     Text(candidate.rawValue)
                         .font(.system(size: 10, weight: .bold, design: .rounded))
@@ -184,21 +200,23 @@ struct ContentView: View {
                 CrossfaderView(value: $mixer.crossfade) { mixer.centreCrossfade() }
             }
 
-            VStack(spacing: 10) {
-                Text("MASTER")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .kerning(1)
-                    .foregroundColor(Theme.label)
-                masterReadout
-                Fader(
-                    level: volume.level,
-                    isDimmed: volume.isMuted,
-                    showsTicks: false,
-                    onDelta: { volume.nudge(by: $0) }
-                )
-                masterButtons
+            if showMasterFader {
+                VStack(spacing: 10) {
+                    Text("MASTER")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .kerning(1)
+                        .foregroundColor(Theme.label)
+                    masterReadout
+                    Fader(
+                        level: volume.level,
+                        isDimmed: volume.isMuted,
+                        showsTicks: false,
+                        onDelta: { volume.nudge(by: $0) }
+                    )
+                    masterButtons
+                }
+                .frame(width: 132)
             }
-            .frame(width: 132)
         }
     }
 
