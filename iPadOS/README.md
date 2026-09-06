@@ -300,7 +300,7 @@ ear, not as a measurement.
 
 ## The browser half
 
-`MobileDJ` at `pikemusicschool.com/mobiledj` is the same app in a browser --
+`MobileDJ` at `djjonpike.com/mobiledj` is the same app in a browser --
 same decks, crossfader, waveforms, tags, setlists and edit points -- and reads
 and writes the same set files. A laptop is a better place to build a running
 order; the iPad is a better place to play it.
