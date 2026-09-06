@@ -2,11 +2,13 @@ import SwiftUI
 
 struct ContentView: View {
 
+    /// Declaration order is tab order, and it runs the way the work does:
+    /// get the songs in, put them in an order, then play them.
     private enum Mode: String, CaseIterable {
-        case master = "MASTER"
-        case mixer = "MIXER"
         case library = "LIBRARY"
         case events = "EVENTS"
+        case mixer = "MIXER"
+        case master = "MASTER"
     }
 
     @StateObject private var volume = SystemVolume()
