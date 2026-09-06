@@ -265,6 +265,13 @@ stays at roughly constant loudness across the throw instead of dipping about
 
 ### Master
 
+The master fader can be **turned off entirely** in Settings, for when the level
+is set somewhere else -- another volume app, an interface, the desk. The MASTER
+tab and the master strip in the mixer both go away; the decks, the crossfader
+and the setlists are untouched. Settings still shows what the system output is
+sitting at, so hiding the fader can never leave the rig quiet with no visible
+way to find out why.
+
 **MUTE** latches to silence and restores the previous level. **DIM** drops
 roughly 12 dB for talking over the music and restores on the second press.
 Either mode clears as soon as you move the fader or the hardware buttons. The
@@ -290,6 +297,24 @@ ear, not as a measurement.
 - **No haptics.** iPads have no Taptic Engine, so the faders have no detent feel.
 - **No beat detection, sync, EQ or key lock.** It is two decks, a crossfader
   and per-song edit points, not a DJ controller.
+
+## The browser half
+
+`MobileDJ` at `pikemusicschool.com/mobiledj` is the same app in a browser --
+same decks, crossfader, waveforms, tags, setlists and edit points -- and reads
+and writes the same set files. A laptop is a better place to build a running
+order; the iPad is a better place to play it.
+
+Two differences worth knowing:
+
+- Its master fader rides **its own mix**, not the system output. No web API can
+  set the device volume, which is the one thing only this app can do.
+- Its fades are **sample-accurate**, scheduled as Web Audio gain ramps, where
+  this app writes volume from a 30 Hz timer because `AVAudioPlayerNode` has no
+  ramp API.
+
+The set format identifier stays `bigfader.set` in both, whatever either app is
+called: it is the interop contract, not a product name.
 
 ## Licence
 
