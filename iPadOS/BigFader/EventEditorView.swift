@@ -50,7 +50,7 @@ struct EventEditorView: View {
             }
         }
         .sheet(item: $editTarget) { target in
-            EditPointsView(track: target.track, edit: target.edit) { edited in
+            EditPointsView(track: target.track, edit: target.edit, store: store) { edited in
                 guard let index = draft.items.firstIndex(where: { $0.id == target.id }) else { return }
                 draft.items[index].edit = edited
             }
