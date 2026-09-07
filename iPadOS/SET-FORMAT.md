@@ -83,8 +83,16 @@ still gets the whole running order and waits for the audio.
 
 Anything that means something only on the device that wrote it: container
 filenames, waveform caches, which event is currently active, when a file was
-added, deck state, fader positions. A reader that finds itself wanting one of
-these should keep it in its own local storage, not here.
+added, deck state, fader positions, whether a track or event has been archived,
+which songs have been marked played, and any per-event options a reader offers.
+A reader that finds itself wanting one of these should keep it in its own local
+storage, not here.
+
+Filing is not part of the running order, so a reader must not lose its own
+filing to an import. The web app, which archives tracks and events, keeps the
+local archived flag, the event's own settings and its played marks when an
+incoming set replaces an event it already has -- only the songs and their edit
+points come from the file.
 
 ## Matching
 
