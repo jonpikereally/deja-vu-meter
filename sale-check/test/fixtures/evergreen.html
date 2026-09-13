@@ -1,0 +1,9 @@
+<!doctype html><html><head><title>Miracle Blender</title></head>
+<body><h1>Miracle Blender</h1>
+<p>Was <del>$199.00</del> Now only $49.00 - up to 80% off!</p>
+<p>Hurry! Offer ends in <span id="countdown"></span></p>
+<script>
+  var deadline = Date.now() + 24 * 60 * 60 * 1000;
+  setInterval(function(){ document.getElementById('countdown').textContent = Math.floor((deadline - Date.now())/1000); }, 1000);
+</script>
+</body></html>

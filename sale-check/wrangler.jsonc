@@ -1,0 +1,25 @@
+// Sale Check: Cloudflare Worker + Static Assets, one config for both
+// environments. Production is the top level; `wrangler deploy --env staging`
+// takes the staging overrides below.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sale-check",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  "vars": { "APP_ENV": "production" },
+  // Create with: wrangler kv namespace create PRICE_HISTORY
+  "kv_namespaces": [{ "binding": "PRICE_HISTORY", "id": "REPLACE_WITH_PRODUCTION_KV_ID" }],
+  // Uncomment once a domain is chosen; the zone must already be on Cloudflare.
+  // "routes": [{ "pattern": "salecheck.example.com", "custom_domain": true }],
+  "env": {
+    "staging": {
+      "vars": { "APP_ENV": "staging" },
+      // Create with: wrangler kv namespace create PRICE_HISTORY --env staging
+      "kv_namespaces": [{ "binding": "PRICE_HISTORY", "id": "REPLACE_WITH_STAGING_KV_ID" }]
+      // "routes": [{ "pattern": "staging.salecheck.example.com", "custom_domain": true }]
+    }
+  }
+}
