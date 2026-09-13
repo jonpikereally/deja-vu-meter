@@ -1,0 +1,20 @@
+{
+  "name": "sale-check",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Is that sale real? Records a product page's price over time and flags fake reference prices and pressure tactics.",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "stamp": "node scripts/stamp.mjs",
+    "check": "node cli.js",
+    "dev": "npm run stamp && wrangler dev",
+    "deploy:staging": "npm run test && npm run stamp && wrangler deploy --env staging",
+    "deploy": "npm run test && npm run stamp && wrangler deploy"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

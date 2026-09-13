@@ -1,0 +1,120 @@
+:root {
+  --bg: #f6f5f1;
+  --card: #ffffff;
+  --ink: #1d1c1a;
+  --muted: #5f5c55;
+  --line: #e2dfd7;
+  --accent: #1f5f8b;
+  --red: #b3261e;
+  --amber: #a15c00;
+  --green: #1f6e3a;
+  --info: #3b5b7a;
+  --red-bg: #fbe9e7;
+  --amber-bg: #fff3e0;
+  --green-bg: #e6f4ea;
+  --info-bg: #e8eef5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161514;
+    --card: #211f1d;
+    --ink: #f0ede6;
+    --muted: #a8a49b;
+    --line: #37342f;
+    --accent: #7db6e0;
+    --red: #ff8a80;
+    --amber: #ffb74d;
+    --green: #81c995;
+    --info: #90b4d8;
+    --red-bg: #3a1f1d;
+    --amber-bg: #3a2a12;
+    --green-bg: #1c3324;
+    --info-bg: #1e2a36;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+header.wrap { padding-bottom: 0; }
+h1 { font-size: 2rem; margin: 0 0 8px; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; margin: 0 0 12px; }
+.lede { color: var(--muted); margin: 0 0 8px; max-width: 60ch; }
+form { margin: 8px 0 16px; }
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+input[type="url"] {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 12px 14px;
+  font-size: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+}
+button {
+  padding: 12px 22px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+button[disabled] { opacity: 0.6; cursor: wait; }
+.hint, .small { color: var(--muted); font-size: 0.875rem; }
+.status { padding: 12px 14px; border-radius: 8px; background: var(--info-bg); color: var(--info); }
+.status.error { background: var(--red-bg); color: var(--red); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+.verdict-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.verdict-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  background: var(--info-bg);
+  color: var(--info);
+}
+.badge.red { background: var(--red-bg); color: var(--red); }
+.badge.amber { background: var(--amber-bg); color: var(--amber); }
+.badge.green { background: var(--green-bg); color: var(--green); }
+.confidence { color: var(--muted); font-size: 0.9rem; }
+.verdict-summary { margin: 12px 0; font-size: 1.05rem; }
+.meter { height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); position: relative; overflow: hidden; }
+.meter-fill { position: absolute; right: 0; top: 0; bottom: 0; background: var(--line); opacity: 0.85; width: 100%; transition: width 0.4s ease; }
+.meter-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin: 6px 0 0; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.spark { width: 100%; height: 90px; display: block; margin-bottom: 8px; }
+.spark .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+.spark .was { fill: none; stroke: var(--amber); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.spark .dot { fill: var(--accent); }
+.findings, .links { list-style: none; padding: 0; margin: 0; }
+.findings li { padding: 12px 14px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--info); background: var(--info-bg); }
+.findings li.red { border-color: var(--red); background: var(--red-bg); }
+.findings li.amber { border-color: var(--amber); background: var(--amber-bg); }
+.findings li.green { border-color: var(--green); background: var(--green-bg); }
+.findings .title { font-weight: 600; display: block; }
+.findings .detail { font-size: 0.925rem; }
+.links li { margin-bottom: 6px; }
+a { color: var(--accent); }
+.how ul { padding-left: 20px; }
+.how li { margin-bottom: 8px; }
+footer { border-top: 1px solid var(--line); margin-top: 24px; }
