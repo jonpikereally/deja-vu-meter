@@ -107,7 +107,7 @@ final class LibraryStore: ObservableObject {
                 do {
                     outcomes.append(try self.copyIn(url, known: known))
                 } catch {
-                    failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
+                    failures.append(ErrorCode.importFile.message("Could not import \(url.lastPathComponent): \(error.localizedDescription)"))
                 }
             }
 
@@ -477,7 +477,7 @@ final class LibraryStore: ObservableObject {
             try data.write(to: destination, options: .atomic)
             return destination
         } catch {
-            lastError = "Could not export: \(error.localizedDescription)"
+            lastError = ErrorCode.setExport.message("Could not export: \(error.localizedDescription)")
             return nil
         }
     }
@@ -494,16 +494,16 @@ final class LibraryStore: ObservableObject {
         do {
             document = try SetDocument.decoder().decode(SetDocument.self, from: Data(contentsOf: url))
         } catch {
-            lastError = "Not a readable set file: \(error.localizedDescription)"
+            lastError = ErrorCode.setUnreadable.message("Not a readable set file: \(error.localizedDescription)")
             return nil
         }
 
         guard document.format == SetDocument.identifier else {
-            lastError = "That file is not a Big Fader set."
+            lastError = ErrorCode.setWrongFormat.message("That file is not a Big Fader set.")
             return nil
         }
         guard document.version <= SetDocument.currentVersion else {
-            lastError = "That set was written by a newer version of the app."
+            lastError = ErrorCode.setTooNew.message("That set was written by a newer version of the app.")
             return nil
         }
 
@@ -637,7 +637,7 @@ final class LibraryStore: ObservableObject {
             repairSetlists()
             backfillHashes()
         } catch {
-            lastError = "Could not read the library: \(error.localizedDescription)"
+            lastError = ErrorCode.libraryRead.message("Could not read the library: \(error.localizedDescription)")
         }
     }
 
@@ -684,7 +684,7 @@ final class LibraryStore: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(file).write(to: indexURL, options: .atomic)
         } catch {
-            lastError = "Could not save the library: \(error.localizedDescription)"
+            lastError = ErrorCode.librarySave.message("Could not save the library: \(error.localizedDescription)")
         }
     }
 }

@@ -55,7 +55,7 @@ struct LibraryView: View {
         ) { result in
             switch result {
             case .success(let urls): store.importFiles(urls)
-            case .failure(let error): store.lastError = error.localizedDescription
+            case .failure(let error): store.lastError = ErrorCode.importPicker.message("Could not open those files: \(error.localizedDescription)")
             }
         }
         .sheet(item: $editing) { track in
