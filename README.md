@@ -118,6 +118,17 @@ This project uses the JUCE framework under its AGPLv3 option. **If you want to
 sell a plugin built from this code, you need a commercial JUCE licence** — the
 AGPLv3 option does not cover closed-source commercial distribution.
 
+## Also in this repo
+
+[`iPadOS/`](iPadOS/) holds **Big Fader**, an iPad app you can park in Split View
+next to Spotify: two decks of local audio with a crossfader, a track library
+imported from Files/iCloud/Dropbox/Drive with tags and waveform overviews, event
+setlists whose entries each carry their own fades and edit points, a live mode
+that works both decks down a running order, and a large fader on the system
+output volume. Unrelated to the plugins: SwiftUI, no JUCE, built in
+Xcode rather than by the CMake build above. See
+[iPadOS/README.md](iPadOS/README.md).
+
 ## Notes and caveats
 
 - **Deja VU LUFS** uses RBJ shelf/high-pass filters to approximate BS.1770
