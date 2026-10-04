@@ -76,7 +76,7 @@ final class Deck: ObservableObject, Identifiable {
             engine.connect(player, to: engine.mainMixerNode, format: audioFile.processingFormat)
             updateEnvelope(at: position)
         } catch {
-            loadError = error.localizedDescription
+            loadError = ErrorCode.deckLoad.message("Could not open the file: \(error.localizedDescription)")
         }
     }
 

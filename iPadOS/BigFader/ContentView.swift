@@ -313,10 +313,13 @@ struct ContentView: View {
     @ViewBuilder
     private var errorLine: some View {
         if let message = store.lastError ?? mixer.engineError {
+            // Cut from the middle, not the end: an error ends in its code,
+            // which is the part worth keeping when the line is too long.
             Text(message)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundColor(Theme.red)
                 .lineLimit(2)
+                .truncationMode(.middle)
         } else if let notice = store.lastNotice {
             Text(notice)
                 .font(.system(size: 10, weight: .medium, design: .rounded))

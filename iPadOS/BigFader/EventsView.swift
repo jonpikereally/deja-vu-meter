@@ -38,7 +38,7 @@ struct EventsView: View {
         ) { result in
             switch result {
             case .success(let urls): if let url = urls.first { store.importSet(from: url) }
-            case .failure(let error): store.lastError = error.localizedDescription
+            case .failure(let error): store.lastError = ErrorCode.setPicker.message("Could not open that file: \(error.localizedDescription)")
             }
         }
         .sheet(item: $exporting) { file in

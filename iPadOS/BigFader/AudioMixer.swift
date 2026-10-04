@@ -164,7 +164,7 @@ final class AudioMixer: ObservableObject {
             try engine.start()
             engineError = nil
         } catch {
-            engineError = error.localizedDescription
+            engineError = ErrorCode.engineStart.message("Audio would not start: \(error.localizedDescription)")
         }
     }
 
