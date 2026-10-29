@@ -101,6 +101,42 @@ Every plugin follows the same shape:
 
 Shared UI: `Source/MenuButton.h` (the DEL button's drawn disclosure triangle).
 
+## The iPad app
+
+`iPadOS/` is a SwiftUI iPad app (Big Fader): two decks with a crossfader, a
+tagged track library with waveform overviews, event setlists whose entries each
+carry their own fades and edit points, a live mode that works the decks down a
+running order, plus a big fader on the system output volume. Sets are shared
+with other apps through `iPadOS/SET-FORMAT.md` -- read that before changing
+anything a set file carries. It shares nothing with the plugins --
+no JUCE, no CMake, built in Xcode -- so `cmake --build` and `auval` say nothing
+about it, and the ASCII-only rule above is a JUCE quirk that does not apply to
+Swift string literals. The Xcode project uses a synchronized folder, so new
+files under `iPadOS/BigFader/` need no project edit.
+
+The one thing to know before touching it: iPadOS has no API for setting the
+volume. The app drives the `UISlider` inside an `MPVolumeView`, and that view
+has to stay in the hierarchy, on screen, non-hidden and non-zero-sized or the
+writes silently stop working. `iPadOS/BigFader/VolumeBridge.swift` explains it.
+
+## Error codes
+
+**Every error a user can see carries a code.** This is the project owner's
+standing rule for every app and site they build, so an error can be pasted
+into an LLM and looked up rather than paraphrased.
+
+- **Big Fader:** codes are `BF-AREA-NN`, defined once in
+  `iPadOS/BigFader/ErrorCode.swift`; `ErrorCode.x.message("...")` appends the
+  code to the text shown. `iPadOS/ERRORS.md` explains each one -- what it
+  means, the usual cause, what to try. A new error is a new case there and a
+  new entry here, in the same change. Error text is cut from the middle, so
+  the code at the end survives truncation.
+- **The plugins** show no error messages today. If one is added, give it a
+  `DVM-AREA-NN` code the same way, in plain ASCII (rule 1 above), with a
+  matching `ERRORS.md`.
+- Guidance is not an error and gets no code. A code means something failed:
+  a file, the audio engine, the disk, the host.
+
 ## Style
 
 - Modern C++17, JUCE idioms, 4-space indent, `juce::` qualified.
