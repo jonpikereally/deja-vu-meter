@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sale Check</title>
+<meta name="description" content="Paste a product link and find out whether the sale is real. Sale Check records the price over time, checks whether the 'was' price was ever charged, and flags fake countdowns and pressure tactics.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="wrap">
+  <h1>Sale Check</h1>
+  <p class="lede">Is that discount real? Paste a product page. Sale Check reads the price and the claimed "was" price, remembers them, and flags the tricks fake sales rely on.</p>
+</header>
+
+<main class="wrap">
+  <form id="check-form" autocomplete="off">
+    <label for="url">Product page address</label>
+    <div class="row">
+      <input id="url" name="url" type="url" required placeholder="https://www.example.com/product/123" inputmode="url">
+      <button id="submit" type="submit">Check</button>
+    </div>
+    <p class="hint">Nothing is bought or signed up for. The page is fetched once and only its prices are stored.</p>
+  </form>
+
+  <p id="status" class="status" hidden></p>
+
+  <section id="result" class="result" hidden>
+    <div class="verdict-card">
+      <div class="verdict-head">
+        <span id="verdict-badge" class="badge">Unverified</span>
+        <span id="confidence" class="confidence"></span>
+      </div>
+      <p id="verdict-summary" class="verdict-summary"></p>
+      <div class="meter" aria-hidden="true"><div id="meter-fill" class="meter-fill"></div></div>
+      <p class="meter-label"><span>Looks fine</span><span id="score-text"></span><span>Fake</span></p>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>What the page says</h2>
+        <dl class="facts">
+          <dt>Product</dt><dd id="p-name"></dd>
+          <dt>Price now</dt><dd id="p-price"></dd>
+          <dt>Claimed "was"</dt><dd id="p-was"></dd>
+          <dt>Discount</dt><dd id="p-discount"></dd>
+          <dt>Reference source</dt><dd id="p-source"></dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2>Price history</h2>
+        <svg id="spark" class="spark" viewBox="0 0 320 90" preserveAspectRatio="none" role="img" aria-label="Price history"></svg>
+        <p id="history-text" class="small"></p>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Findings</h2>
+      <ul id="findings" class="findings"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Check for yourself</h2>
+      <ul id="next-steps" class="links"></ul>
+    </section>
+  </section>
+
+  <section class="card how">
+    <h2>How it decides</h2>
+    <ul>
+      <li><strong>Was the "was" price ever the price?</strong> A genuine reference price is one the shop actually charged, for a reasonable period, immediately before the sale. One visit can't prove that, so each check is stored and the verdict firms up over days and weeks.</li>
+      <li><strong>Does the sale ever end?</strong> An item that's been "on sale" at every check for a month is just at its normal price.</li>
+      <li><strong>Is the clock real?</strong> Countdown timers whose deadline is computed from your own clock, or that restart between visits, are props.</li>
+      <li><strong>Pressure tactics.</strong> "Only 3 left", "12 people are viewing this", "up to 70% off" and RRP-based discounts each add to the suspicion score. None alone proves a fake sale; together they usually do.</li>
+    </ul>
+    <p class="small">Sale Check can only read what a page sends to a plain browser. Shops that draw prices with JavaScript or block automated visits will come back as "no price found". The command-line version can analyse a page you have saved from your browser.</p>
+  </section>
+</main>
+
+<footer class="wrap small">
+  <span>Sale Check</span> <span id="build"></span>
+</footer>
+<script src="/app.js"></script>
+</body>
+</html>
